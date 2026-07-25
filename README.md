@@ -8,7 +8,7 @@ problem framing, data preparation, modeling, evaluation, and conclusions.
 
 | Project | Area | Highlights | Status |
 | --- | --- | --- | --- |
-| [Telco Customer Churn](projects/telco-churn/) | Tabular classification | Leakage-safe pipelines, cross-validated model comparison, holdout evaluation | Implemented |
+| [Telco Customer Churn](projects/telco-churn/) | Tabular classification | Nested OOF thresholding, SHAP explanations, business scenario analysis | Implemented |
 
 ## Repository structure
 
