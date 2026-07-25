@@ -28,7 +28,7 @@ for reproducing the work.
 
 ## Getting started
 
-This repository requires Python 3.11 or newer. The recommended package manager
+This repository requires Python 3.12 or newer. The recommended package manager
 is [uv](https://docs.astral.sh/uv/).
 
 ```bash
