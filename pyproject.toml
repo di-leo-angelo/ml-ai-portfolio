@@ -29,8 +29,14 @@ dev = [
 packages = ["src/ml_ai_portfolio"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = [
+    "tests",
+    "projects/telco-churn/tests",
+]
 addopts = "-ra"
+pythonpath = [
+    "projects/telco-churn/src",
+]
 
 [tool.ruff]
 target-version = "py311"
