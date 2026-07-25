@@ -6,7 +6,9 @@ import json
 from pathlib import Path
 
 import joblib
+import numpy as np
 import pandas as pd
+from business import BusinessAssumptions, select_business_threshold
 from evaluate import evaluate_model
 from pipeline import RANDOM_STATE, build_candidate_models
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_validate
@@ -20,6 +22,9 @@ from data import (
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL_PATH = PROJECT_DIR / "models" / "best_model.joblib"
 DEFAULT_CV_RESULTS_PATH = PROJECT_DIR / "reports" / "metrics" / "cv_results.json"
+DEFAULT_THRESHOLD_PATH = (
+    PROJECT_DIR / "reports" / "metrics" / "threshold_selection.json"
+)
 
 SCORING = {
     "pr_auc": "average_precision",
@@ -104,6 +109,42 @@ def tune_logistic_regression(
     return grid
 
 
+def generate_nested_oof_probabilities(
+    logistic_pipeline,
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    *,
+    outer_cv: StratifiedKFold | None = None,
+    inner_splits: int = 5,
+) -> np.ndarray:
+    """Generate OOF probabilities with tuning confined to each outer fold.
+
+    Every row is transformed, tuned, and predicted by a workflow that never
+    sees that row during fitting or hyperparameter selection.
+    """
+    outer_cv = outer_cv or make_cv()
+    probabilities = np.empty(len(y_train), dtype=float)
+
+    for fold, (fit_indices, validation_indices) in enumerate(
+        outer_cv.split(X_train, y_train)
+    ):
+        inner_cv = make_cv(
+            n_splits=inner_splits,
+            random_state=RANDOM_STATE + fold + 1,
+        )
+        fold_grid = tune_logistic_regression(
+            logistic_pipeline,
+            X_train.iloc[fit_indices],
+            y_train.iloc[fit_indices],
+            cv=inner_cv,
+        )
+        probabilities[validation_indices] = fold_grid.predict_proba(
+            X_train.iloc[validation_indices]
+        )[:, 1]
+
+    return probabilities
+
+
 def save_cv_results(
     results: pd.DataFrame,
     path: str | Path = DEFAULT_CV_RESULTS_PATH,
@@ -113,6 +154,19 @@ def save_cv_results(
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         results.to_json(orient="records", indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def save_json_report(
+    report: dict,
+    path: str | Path,
+) -> None:
+    """Write a JSON-serializable report."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(report, indent=2) + "\n",
         encoding="utf-8",
     )
 
@@ -143,7 +197,34 @@ def main() -> None:
     print(comparison.to_string(index=False))
     print()
 
-    # Notebook result: logistic regression was the strongest candidate.
+    assumptions = BusinessAssumptions()
+    oof_probability = generate_nested_oof_probabilities(
+        models["logistic_regression"],
+        X_train,
+        y_train,
+        outer_cv=cv,
+    )
+    threshold, oof_impact = select_business_threshold(
+        y_train,
+        oof_probability,
+        assumptions=assumptions,
+    )
+    save_json_report(
+        {
+            "selection_data": "nested out-of-fold training predictions",
+            "selected_threshold": threshold,
+            "oof_business_impact": oof_impact,
+        },
+        DEFAULT_THRESHOLD_PATH,
+    )
+
+    print(f"OOF-selected business threshold: {threshold:.3f}")
+    print(
+        "OOF estimated savings under stated assumptions: "
+        f"${oof_impact['estimated_savings']:,.2f}"
+    )
+    print()
+
     grid = tune_logistic_regression(
         models["logistic_regression"],
         X_train,
@@ -163,7 +244,8 @@ def main() -> None:
         best_model,
         X_test,
         y_test,
-        threshold=0.5,
+        threshold=threshold,
+        assumptions=assumptions,
     )
 
     print("Holdout evaluation")

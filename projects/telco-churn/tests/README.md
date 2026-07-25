@@ -8,5 +8,8 @@ Current coverage:
 - Duplicate `customerID` rejection
 - Feature/target separation and reproducible stratified splits
 - Logistic pipeline smoke fit and probability outputs
+- Business-cost calculations and sensitivity assumptions
+- OOF threshold optimization behavior
+- Overall and customer-segment evaluation metrics
 
 Use small fixtures rather than the downloaded CSV so CI does not need the raw dataset.
