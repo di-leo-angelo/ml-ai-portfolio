@@ -1,12 +1,12 @@
 # Tests
 
-Add focused tests as implementation progresses. Useful first tests include:
+Project-local tests live here so each portfolio project stays self-contained.
 
-- The loader returns the expected columns and binary target.
-- `customerID` never appears in model features.
-- The split is reproducible, stratified, and has no overlapping customer IDs.
-- `TotalCharges` blanks are handled inside preprocessing.
-- The complete pipeline can fit and predict on a small fixture.
-- Evaluation rejects a model or dataset with the wrong target classes.
+Current coverage:
 
-Tests should use small in-memory fixtures rather than the full downloaded CSV.
+- `TotalCharges` conversion and blank-to-NaN handling
+- Duplicate `customerID` rejection
+- Feature/target separation and reproducible stratified splits
+- Logistic pipeline smoke fit and probability outputs
+
+Use small fixtures rather than the downloaded CSV so CI does not need the raw dataset.

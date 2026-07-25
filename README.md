@@ -6,23 +6,20 @@ problem framing, data preparation, modeling, evaluation, and conclusions.
 
 ## Projects
 
-Projects will be listed here as they are completed.
-
 | Project | Area | Highlights | Status |
 | --- | --- | --- | --- |
-| [Telco Customer Churn](projects/telco-churn/) | Tabular classification | Leakage-safe pipelines, model comparison, threshold analysis | In progress |
+| [Telco Customer Churn](projects/telco-churn/) | Tabular classification | Leakage-safe pipelines, cross-validated model comparison, holdout evaluation | Implemented |
 
 ## Repository structure
 
 ```text
 .
-├── projects/             # Self-contained portfolio projects
-├── notebooks/            # Exploratory notebooks
-├── src/ml_ai_portfolio/  # Reusable Python code
-├── tests/                # Automated tests
-├── data/                 # Local datasets (contents are not committed)
-├── models/               # Generated models (contents are not committed)
-└── pyproject.toml        # Dependencies and tool configuration
+├── .github/workflows/      # Continuous integration
+├── projects/               # Self-contained portfolio projects
+│   └── telco-churn/        # Data, source, reports, and project-local tests
+├── src/ml_ai_portfolio/    # Shared package code
+├── tests/                  # Shared package tests
+└── pyproject.toml          # Dependencies and tool configuration
 ```
 
 Each finished project should include its own README with the question being
@@ -40,36 +37,42 @@ cd ml-ai-portfolio
 uv sync --extra dev
 ```
 
-Activate the environment:
-
-```bash
-# Windows
-.venv\Scripts\activate
-
-# macOS or Linux
-source .venv/bin/activate
-```
-
-To open the notebooks:
-
-```bash
-jupyter lab
-```
-
 Using `pip` instead:
 
 ```bash
 python -m venv .venv
-python -m pip install -e ".[dev]"
+
+# Windows
+.venv\Scripts\python -m pip install -e ".[dev]"
+
+# macOS or Linux
+.venv/bin/python -m pip install -e ".[dev]"
 ```
 
-## Quality checks
+## Run the Telco Churn project
+
+Download the dataset, then train and evaluate the models:
 
 ```bash
-ruff check .
-ruff format --check .
-pytest
+uv run python projects/telco-churn/scripts/download_data.py
+uv run python projects/telco-churn/src/train.py
 ```
+
+See the [project README](projects/telco-churn/README.md) for the methodology,
+results, generated artifacts, limitations, and project-specific test command.
+
+## Tests and quality checks
+
+```bash
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+```
+
+Tests are organized with the code they cover: shared package tests live in the
+root `tests/` directory, while each portfolio project owns its tests under its
+project directory. GitHub Actions runs all three checks for pushes and pull
+requests.
 
 ## Contributing
 
