@@ -1,0 +1,6 @@
+/data/raw/*
+!/data/raw/.gitkeep
+
+# Generated project outputs
+/models/
+/reports/metrics/

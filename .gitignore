@@ -216,3 +216,23 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ML datasets and generated model artifacts
+data/raw/*
+data/interim/*
+data/processed/*
+!data/**/.gitkeep
+models/*
+!models/.gitkeep
+artifacts/
+*.joblib
+*.pkl
+*.pt
+*.pth
+*.onnx
+
+# Local secrets and operating-system files
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
