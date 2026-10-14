@@ -1,0 +1,11 @@
+# Dataset (re-download with scripts/download_data.py)
+/data/*
+!/data/README.md
+
+# Generated project outputs
+/models/
+/runs/
+/reports/figures/
+
+# Misc
+.ipynb_checkpoints/
