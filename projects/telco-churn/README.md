@@ -190,7 +190,7 @@ uv run ruff format --check .
 ```text
 telco-churn/
 ├── data/                  # Dataset documentation and ignored raw CSV
-├── notebooks/             # Notebook guidance
+├── notebooks/             # EDA and modeling notebooks
 ├── reports/
 │   ├── figures/           # Generated evaluation plots
 │   └── metrics/           # Ignored generated metric files

@@ -16,7 +16,7 @@ python projects/telco-churn/scripts/download_data.py
 This creates:
 
 ```text
-data/raw/Telco-Customer-Churn.csv
+projects/telco-churn/data/raw/Telco-Customer-Churn.csv
 ```
 
 The CSV is not committed. The download script verifies its expected columns and

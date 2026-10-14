@@ -217,13 +217,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# ML datasets and generated model artifacts
-data/raw/*
-data/interim/*
-data/processed/*
-!data/**/.gitkeep
-models/*
-!models/.gitkeep
+# Generated model artifacts (each project ignores its own dataset)
 artifacts/
 *.joblib
 *.pkl
