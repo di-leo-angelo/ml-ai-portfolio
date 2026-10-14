@@ -9,6 +9,7 @@ problem framing, data preparation, modeling, evaluation, and conclusions.
 | Project | Area | Highlights | Status |
 | --- | --- | --- | --- |
 | [Telco Customer Churn](projects/telco-churn/) | Tabular classification | Nested OOF thresholding, SHAP explanations, business scenario analysis | Implemented |
+| [CIFAR-10 CNN](projects/cifar10-cnn/) | Image classification | 89.0% test accuracy, LR scheduling + early stopping, CPU-only training | Implemented |
 
 ## Repository structure
 
@@ -16,6 +17,7 @@ problem framing, data preparation, modeling, evaluation, and conclusions.
 .
 ├── .github/workflows/      # Continuous integration
 ├── projects/               # Self-contained portfolio projects
+│   ├── cifar10-cnn/        # Data, source, reports, and project-local tests
 │   └── telco-churn/        # Data, source, reports, and project-local tests
 ├── src/ml_ai_portfolio/    # Shared package code
 ├── tests/                  # Shared package tests
@@ -60,6 +62,21 @@ uv run python projects/telco-churn/src/train.py
 
 See the [project README](projects/telco-churn/README.md) for the methodology,
 results, generated artifacts, limitations, and project-specific test command.
+
+## Run the CIFAR-10 CNN project
+
+Download the dataset, then train and evaluate (CPU-only; a full training run
+takes several hours):
+
+```bash
+uv run python projects/cifar10-cnn/scripts/download_data.py
+cd projects/cifar10-cnn/src
+uv run python -m cifar10.train
+uv run python -m cifar10.evaluate
+```
+
+See the [project README](projects/cifar10-cnn/README.md) for the methodology,
+results, and project-specific details.
 
 ## Tests and quality checks
 
