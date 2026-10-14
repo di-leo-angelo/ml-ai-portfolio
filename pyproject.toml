@@ -21,6 +21,8 @@ dependencies = [
     "scikit-learn>=1.6",
     "seaborn>=0.13",
     "shap>=0.52",
+    "torch>=2.14",
+    "torchvision>=0.29",
 ]
 
 [project.optional-dependencies]
@@ -36,10 +38,12 @@ packages = ["src/ml_ai_portfolio"]
 testpaths = [
     "tests",
     "projects/telco-churn/tests",
+    "projects/cifar10-cnn/tests",
 ]
 addopts = "-ra"
 pythonpath = [
     "projects/telco-churn/src",
+    "projects/cifar10-cnn/src",
 ]
 
 [tool.ruff]
