@@ -11,6 +11,8 @@ requires-python = ">=3.12"
 license = { file = "LICENSE" }
 authors = [{ name = "Angelo Di Leo" }]
 dependencies = [
+    "accelerate",
+    "datasets",
     "joblib>=1.4",
     "jupyterlab>=4.4",
     "llvmlite>=0.43",
@@ -23,6 +25,7 @@ dependencies = [
     "shap>=0.52",
     "torch>=2.14",
     "torchvision>=0.29",
+    "transformers",
 ]
 
 [project.optional-dependencies]
@@ -39,11 +42,13 @@ testpaths = [
     "tests",
     "projects/telco-churn/tests",
     "projects/cifar10-cnn/tests",
+    "projects/bert-sentiment/tests",
 ]
 addopts = "-ra"
 pythonpath = [
     "projects/telco-churn/src",
     "projects/cifar10-cnn/src",
+    "projects/bert-sentiment/src",
 ]
 
 [tool.ruff]

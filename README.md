@@ -10,6 +10,7 @@ problem framing, data preparation, modeling, evaluation, and conclusions.
 | --- | --- | --- | --- |
 | [Telco Customer Churn](projects/telco-churn/) | Tabular classification | Nested OOF thresholding, SHAP explanations, business scenario analysis | Implemented |
 | [CIFAR-10 CNN](projects/cifar10-cnn/) | Image classification | 89.0% test accuracy, LR scheduling + early stopping, CPU-only training | Implemented |
+| [BERT Sentiment (SST-2)](projects/bert-sentiment/) | NLP / fine-tuning | BERT-base + DistilBERT ablation, dev-set evaluation, published to the Hugging Face Hub | In progress |
 
 ## Repository structure
 
@@ -17,6 +18,7 @@ problem framing, data preparation, modeling, evaluation, and conclusions.
 .
 ├── .github/workflows/      # Continuous integration
 ├── projects/               # Self-contained portfolio projects
+│   ├── bert-sentiment/     # Data, source, reports, and project-local tests
 │   ├── cifar10-cnn/        # Data, source, reports, and project-local tests
 │   └── telco-churn/        # Data, source, reports, and project-local tests
 ├── src/ml_ai_portfolio/    # Shared package code
@@ -77,6 +79,29 @@ uv run python -m cifar10.evaluate
 
 See the [project README](projects/cifar10-cnn/README.md) for the methodology,
 results, and project-specific details.
+
+## Run the BERT Sentiment project
+
+Download the dataset, then fine-tune a Transformer on SST-2 (CPU-only; the
+`--quick` smoke test takes ~10 min, full runs take a few hours):
+
+```bash
+uv run python projects/bert-sentiment/scripts/download_data.py
+cd projects/bert-sentiment/src
+uv run python -m sentiment.train --quick
+uv run python -m sentiment.train
+uv run python -m sentiment.evaluate
+```
+
+To publish a model to the Hugging Face Hub (dry run by default, uses the
+`HF_TOKEN` from the git-ignored `.env.local`):
+
+```bash
+uv run python projects/bert-sentiment/scripts/publish.py --model bert-base
+```
+
+See the [project README](projects/bert-sentiment/README.md) for the
+methodology, results, and project-specific details.
 
 ## Tests and quality checks
 
