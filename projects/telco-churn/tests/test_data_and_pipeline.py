@@ -5,10 +5,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+from data import load_data, make_features_and_target, split_data
 from pandas.testing import assert_frame_equal, assert_series_equal
 from pipeline import build_candidate_models
-
-from data import load_data, make_features_and_target, split_data
 
 
 @pytest.fixture

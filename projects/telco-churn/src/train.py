@@ -9,15 +9,14 @@ import joblib
 import numpy as np
 import pandas as pd
 from business import BusinessAssumptions, select_business_threshold
-from evaluate import evaluate_model
-from pipeline import RANDOM_STATE, build_candidate_models
-from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_validate
-
 from data import (
     load_data,
     make_features_and_target,
     split_data,
 )
+from evaluate import evaluate_model
+from pipeline import RANDOM_STATE, build_candidate_models
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_validate
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL_PATH = PROJECT_DIR / "models" / "best_model.joblib"
