@@ -42,17 +42,38 @@ it is downloaded and validated but never used locally.
 
 ## 3. Methodology
 
+| Component | Choice |
+|---|---|
+| Base model | `bert-base-uncased` (default) or `distilbert-base-uncased` |
+| Preprocessing | WordPiece tokenizer, `max_length=64`, truncation (99.96% of sentences fit; longest is 52 words) |
+| Fine-tuning | full-parameter, Hugging Face `Trainer` |
+| Optimizer | AdamW (Trainer defaults), lr 2e-5, weight decay 0.01 |
+| Schedule | linear warmup for 10% of steps, then linear decay |
+| Batch size | 16 train / 32 eval |
+| Early stopping | patience 3 epochs on dev accuracy; best-dev model restored |
+| Evaluation | dev accuracy + binary F1, confusion matrix, error examples |
+| Seed | 42 |
+
 ## 4. Main results
 
-Full runs on CPU (Intel i5-8250U, no GPU), seed 42. *Numbers pending —
-populated after the training runs complete.*
+Full runs on CPU (Intel i5-8250U, no GPU), seed 42. Both runs use the full
+protocol (3 epochs, best-dev checkpoint, early stopping patience 3); both
+models peak at epoch 1 (BERT-base holds 0.9243 at epochs 1 and 3; DistilBERT
+declines 0.9014 → 0.8979 → 0.8968), so the saved checkpoint is the epoch-1
+model in both cases.
 
-| Model | Train samples | Epochs | Dev accuracy | Dev F1 | Training time |
-|---|---|---|---|---|---|
-| DistilBERT (ablation) | 67,349 | 3 | — | — | — |
-| BERT-base (headline) | 67,349 | 3 | — | — | — |
+| Model | Params | Train samples | Epochs | Dev accuracy | Dev F1 | Training time |
+|---|---|---|---|---|---|---|
+| BERT-base (headline) | 110M | 67,349 | 3 | 0.9243 | 0.9263 | 11 h 27 m |
+| DistilBERT (ablation) | 66M | 67,349 | 3 | 0.9014 | 0.9027 | 5 h 55 m |
 
-`--quick` (pipeline smoke test, 4,096 samples, 1 epoch, DistilBERT): —
+Ablation read: DistilBERT gives up 2.3 dev-accuracy points (2.4 F1 points)
+for 40% fewer parameters, ~2× faster training, and ~2× faster inference.
+BERT-base dev errors: 66/872 (37 negatives and 29 positives misclassified),
+dominated by irony/ambiguity fragments.
+
+`--quick` (pipeline smoke test, 4,096 samples, 1 epoch, DistilBERT): dev
+accuracy **0.8544**, dev F1 **0.8612**, 11.8 min wall time.
 
 ## 5. Limitations and possible improvements
 
@@ -72,9 +93,9 @@ From the repository root (Windows PowerShell):
 . .venv\Scripts\Activate.ps1
 cd projects\bert-sentiment\src
 
-python -m sentiment.train --quick    # smoke test: DistilBERT, 4k subset, 1 epoch (~10 min)
-python -m sentiment.train            # headline run: BERT-base, full data, 3 epochs (~3-5 h)
-python -m sentiment.train --model distilbert   # ablation run: DistilBERT, full data (~2 h)
+python -m sentiment.train --quick    # smoke test: DistilBERT, 4k subset, 1 epoch (~15 min)
+python -m sentiment.train            # headline run: BERT-base, full data, 3 epochs (~12-15 h on this CPU)
+python -m sentiment.train --model distilbert   # ablation run: DistilBERT, full data, 3 epochs (~8-9 h)
 
 python -m sentiment.evaluate         # dev report for models/bert-base (confusion matrix, errors)
 python -m sentiment.evaluate --model distilbert
@@ -116,16 +137,3 @@ classifier = pipeline(
 )
 print(classifier("The film was a fantastic, hilarious ride."))
 ```
-
-
-| Component | Choice |
-|---|---|
-| Base model | `bert-base-uncased` (default) or `distilbert-base-uncased` |
-| Preprocessing | WordPiece tokenizer, `max_length=64`, truncation (99.96% of sentences fit; longest is 52 words) |
-| Fine-tuning | full-parameter, Hugging Face `Trainer` |
-| Optimizer | AdamW (Trainer defaults), lr 2e-5, weight decay 0.01 |
-| Schedule | linear warmup for 10% of steps, then linear decay |
-| Batch size | 16 train / 32 eval |
-| Early stopping | patience 3 epochs on dev accuracy; best-dev model restored |
-| Evaluation | dev accuracy + binary F1, confusion matrix, error examples |
-| Seed | 42 |
