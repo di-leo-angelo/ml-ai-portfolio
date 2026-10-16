@@ -107,12 +107,14 @@ def main(argv: list[str] | None = None) -> None:
         )
         return
 
-    HfApi(token=token).upload_folder(
+    api = HfApi(token=token)
+    api.create_repo(repo_id=repo_id, repo_type="model", exist_ok=True)
+    api.upload_folder(
         repo_id=repo_id,
         folder_path=str(checkpoint),
         path_in_repo="",
-        create_repo=True,
-        exist_ok=True,
+        commit_message=f"Publish {dir_name} fine-tuned on SST-2 "
+        "(weights, tokenizer, model card, training history)",
     )
     print(f"Published to https://huggingface.co/{repo_id}")
 
