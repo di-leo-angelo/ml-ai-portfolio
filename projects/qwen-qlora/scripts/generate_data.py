@@ -114,6 +114,7 @@ def release_lock() -> None:
     except FileNotFoundError:
         pass
 
+
 sys.path.insert(0, str(PROJECT_DIR / "src"))
 
 from qwen_qlora.config import (  # noqa: E402
@@ -140,6 +141,7 @@ def save_with_retry(records: list[dict], path: Path, attempts: int = 3) -> None:
             if attempt == attempts - 1:
                 raise
             time.sleep(2.0 * (attempt + 1))
+
 
 GENERATOR_SYSTEM = (
     "You generate high-quality synthetic tutoring data for school-level "
