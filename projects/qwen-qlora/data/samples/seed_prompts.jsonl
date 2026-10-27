@@ -1,0 +1,10 @@
+{"subject": "algebra", "difficulty": "beginner", "question": "Solve for x: 3x + 5 = 20. Show each step and explain why you do it."}
+{"subject": "calculus", "difficulty": "intermediate", "question": "Differentiate f(x) = (x^2 + 1) / x and simplify the result."}
+{"subject": "probability", "difficulty": "beginner", "question": "A fair die is rolled twice. What is the probability that the sum of the two rolls is 7?"}
+{"subject": "chemistry", "difficulty": "beginner", "question": "Balance the equation Fe + O2 -> Fe2O3 and explain what the coefficients mean."}
+{"subject": "physics", "difficulty": "beginner", "question": "A car accelerates from rest at 2 m/s^2 for 5 seconds. How far does it travel? Show the formula."}
+{"subject": "biology", "difficulty": "intermediate", "question": "Explain how the light and dark reactions of photosynthesis differ and what each produces."}
+{"subject": "history", "difficulty": "intermediate", "question": "What were the main causes of World War I, and how did the alliance system turn a regional crisis into a wider war?"}
+{"subject": "world_geography", "difficulty": "beginner", "question": "Why are hot deserts often found around 30 degrees north and south latitude?"}
+{"subject": "english_literature", "difficulty": "advanced", "question": "How does the unreliable narrator in 'The Tell-Tale Heart' shape the reader's interpretation of the story?"}
+{"subject": "computer_science", "difficulty": "intermediate", "question": "Explain the difference between a stack and a queue, and give one real use case for each."}

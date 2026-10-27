@@ -1,0 +1,15 @@
+# Dataset (regenerate with scripts/generate_data.py + scripts/prepare_data.py)
+/data/*
+!/data/README.md
+!/data/samples/
+
+# Generated project outputs
+/artifacts/
+/models/
+/reports/
+
+# Local secrets and misc
+.env
+.env.*
+!.env.example
+.ipynb_checkpoints/

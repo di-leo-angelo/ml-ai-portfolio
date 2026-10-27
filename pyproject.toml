@@ -12,6 +12,7 @@ license = { file = "LICENSE" }
 authors = [{ name = "Angelo Di Leo" }]
 dependencies = [
     "accelerate",
+    "bitsandbytes>=0.45",
     "datasets",
     "joblib>=1.4",
     "jupyterlab>=4.4",
@@ -19,13 +20,16 @@ dependencies = [
     "matplotlib>=3.10",
     "numba>=0.60",
     "numpy>=2.2",
+    "openai>=1.60",
     "pandas>=2.2",
+    "peft>=0.13",
     "scikit-learn>=1.6",
     "seaborn>=0.13",
     "shap>=0.52",
     "torch>=2.14",
     "torchvision>=0.29",
     "transformers",
+    "trl>=0.14",
 ]
 
 [project.optional-dependencies]
@@ -43,12 +47,14 @@ testpaths = [
     "projects/telco-churn/tests",
     "projects/cifar10-cnn/tests",
     "projects/bert-sentiment/tests",
+    "projects/qwen-qlora/tests",
 ]
 addopts = "-ra"
 pythonpath = [
     "projects/telco-churn/src",
     "projects/cifar10-cnn/src",
     "projects/bert-sentiment/src",
+    "projects/qwen-qlora/src",
 ]
 
 [tool.ruff]
