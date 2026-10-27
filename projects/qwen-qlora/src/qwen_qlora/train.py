@@ -165,15 +165,11 @@ def main() -> None:
     train_ids = prepare_sequences(
         tokenizer, DATA_DIR / "train.jsonl", args.max_seq_length
     )
-    dev_ids = prepare_sequences(
-        tokenizer, DATA_DIR / "dev.jsonl", args.max_seq_length
-    )
+    dev_ids = prepare_sequences(tokenizer, DATA_DIR / "dev.jsonl", args.max_seq_length)
     print(f"{len(train_ids)} train / {len(dev_ids)} dev sequences prepared")
 
     trainable = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.AdamW(
-        trainable, lr=args.learning_rate, weight_decay=0.01
-    )
+    optimizer = torch.optim.AdamW(trainable, lr=args.learning_rate, weight_decay=0.01)
     steps_per_epoch = math.ceil(len(train_ids) / args.grad_accum)
     total_steps = steps_per_epoch * args.epochs
     scheduler = get_cosine_schedule_with_warmup(
