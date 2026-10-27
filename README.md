@@ -11,6 +11,7 @@ problem framing, data preparation, modeling, evaluation, and conclusions.
 | [Telco Customer Churn](projects/telco-churn/) | Tabular classification | Nested OOF thresholding, SHAP explanations, business scenario analysis | Implemented |
 | [CIFAR-10 CNN](projects/cifar10-cnn/) | Image classification | 89.0% test accuracy, LR scheduling + early stopping, CPU-only training | Implemented |
 | [BERT Sentiment (SST-2)](projects/bert-sentiment/) | NLP / fine-tuning | BERT-base 92.4% vs DistilBERT 90.1% dev accuracy, published to the Hugging Face Hub | Implemented |
+| [Qwen3 QLoRA Tutor](projects/qwen-qlora/) | LLM fine-tuning (QLoRA) | Proof of concept: Qwen3.8-27B 4-bit NF4 + LoRA on a rented 4090/5090, tone-focused synthetic Q&A dataset | Data validated (training pending) |
 
 ## Repository structure
 
@@ -20,6 +21,7 @@ problem framing, data preparation, modeling, evaluation, and conclusions.
 ├── projects/               # Self-contained portfolio projects
 │   ├── bert-sentiment/     # Data, source, reports, and project-local tests
 │   ├── cifar10-cnn/        # Data, source, reports, and project-local tests
+│   ├── qwen-qlora/         # Data, source, reports, and project-local tests
 │   └── telco-churn/        # Data, source, reports, and project-local tests
 ├── src/ml_ai_portfolio/    # Shared package code
 ├── tests/                  # Shared package tests
@@ -103,6 +105,27 @@ uv run python projects/bert-sentiment/scripts/publish.py --model bert-base
 
 See the [project README](projects/bert-sentiment/README.md) for the
 methodology, results, and project-specific details.
+
+## Run the Qwen3 QLoRA project
+
+Fine-tune Qwen3.8-27B with QLoRA on a fully synthetic school Q&A dataset
+(proof of concept: the fine-tune targets tutor tone/style, and the dataset is
+seed-anchored per subject - see the project README). Data generation runs
+anywhere (needs an OpenAI-compatible API key in `projects/qwen-qlora/.env`);
+training needs a 24+ GB GPU (rented):
+
+```bash
+uv run python projects/qwen-qlora/scripts/generate_data.py
+uv run python projects/qwen-qlora/scripts/prepare_data.py
+# On the GPU host (inside tmux):
+pip install -r projects/qwen-qlora/requirements-gpu.txt
+python projects/qwen-qlora/scripts/download_model.py
+cd projects/qwen-qlora
+python src/qwen_qlora/train.py --model-name models
+```
+
+See the [project README](projects/qwen-qlora/README.md) for the rental
+workflow, hardware sizing, and the data-generation recipe.
 
 ## Tests and quality checks
 

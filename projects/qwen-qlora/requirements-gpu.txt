@@ -1,0 +1,19 @@
+# GPU-only dependencies for the Qwen3.8-27B QLoRA training/evaluation scripts.
+#
+# The rented GPU host already ships PyTorch + CUDA (e.g. the RunPod PyTorch
+# template); do NOT reinstall torch, or you may downgrade the CUDA build.
+#
+# Install with:
+#   pip install -r projects/qwen-qlora/requirements-gpu.txt
+#
+# Qwen3.8-27B uses the transformers 5.x architecture (qwen3_5), so 5.8+
+# is required.
+accelerate>=1.0
+bitsandbytes>=0.45
+huggingface_hub>=0.30
+peft>=0.13
+transformers>=5.8.0
+# The training loop is hand-rolled (no TRL), so no trainer dependency.
+#
+# Optional, to serve the fine-tuned adapter:
+#   pip install vllm
