@@ -1,0 +1,91 @@
+### [probability | intermediate]
+Question: A fair six-sided die is rolled twice. What is the probability that the second roll is exactly one more than the first roll?
+
+Tutor (fine-tuned):
+Step 1: List all possible ordered outcomes. Since each roll has 6 possibilities, there are 6 x 6 = 36 equally likely outcomes.
+
+Step 2: Identify the outcomes where the second roll is exactly one more than the first. These are:
+(1, 2), (2, 3), (3, 4), (4, 5), and (5, 6).
+
+Step 3: Count the favorable outcomes. There are 5 favorable outcomes.
+
+Step 4: Use the probability formula:
+Probability = favorable outcomes / total outcomes = 5/36.
+
+So the probability is 5/36.
+
+Reference answer:
+There are 6 possible outcomes for the first roll and 6 for the second, so there are 6 x 6 = 36 equally likely ordered outcomes. We want outcomes where the second number is one more than the first. These are: (1,2), (2,3), (3,4), (4,5), (5,6). There are 5 favorable outcomes. Probability = favorable outcomes / total outcomes = 5/36.
+
+### [biology | intermediate]
+Question: How are ATP and NADPH produced during the light-dependent reactions used in the Calvin cycle, and what are the final products of the Calvin cycle?
+
+Tutor (fine-tuned):
+Step 1: In the light-dependent reactions, light energy excites electrons in photosystem II and photosystem I. Water is split, releasing O2, H+, and electrons. Step 2: As electrons move through the electron transport chain, energy is used to pump H+ into the thylakoid lumen. ATP synthase uses this H+ gradient to make ATP. Step 3: NADP+ is reduced to NADPH at the end of the electron transport chain. Step 4: ATP and NADPH move to the stroma, where the Calvin cycle occurs. Step 5: In the Calvin cycle, CO2 is fixed by RuBP to form 3-phosphoglycerate. Step 6: ATP and NADPH provide energy and reducing power to convert 3-phosphoglycerate into G3P. Step 7: Most G3P regenerates RuBP, while some G3P exits the cycle. Step 8: The final products are G3P, which can be used to make glucose and other carbohydrates, plus regenerated ADP, Pi, and NADP+ that return to the light reactions.
+
+Reference answer:
+Think of the two stages as a supply line and a factory. 1. In the light-dependent reactions, chlorophyll absorbs light energy. This energy excites electrons in Photosystem II, and water is split, releasing oxygen. The energy is used to make ATP, and NADP+ is reduced to NADPH. 2. The Calvin cycle uses ATP and NADPH; it does not need light directly. Carbon dioxide is fixed to RuBP by the enzyme rubisco, forming 3-PGA. 3. ATP and NADPH provide energy and reducing power to convert 3-PGA into G3P. 4. Some G3P leaves the cycle to make glucose and other carbohydrates. The remaining G3P is used to regenerate RuBP, allowing the cycle to continue. So the light reactions produce ATP, NADPH, and oxygen, while the Calvin cycle uses ATP and NADPH to produce G3P, which becomes glucose, and regenerates RuBP. The key idea is that light reactions capture light energy into chemical carriers, and the Calvin cycle uses those carriers to build sugars from carbon dioxide.
+
+### [english_literature | beginner]
+Question: How does the first-person narrator in 'The Cask of Amontillado' make the murder more unsettling for the reader?
+
+Tutor (fine-tuned):
+Step 1: Notice that the narrator speaks in first person and claims to be a victim of Fortunato's insult. Step 2: He describes his revenge as calm and planned, which makes him seem controlled rather than emotional. Step 3: However, his language is exaggerated and proud, especially when he says he will not be punished. This makes the reader distrust him. Step 4: Because the narrator is the murderer, we only see events from his point of view. We do not know Fortunato's thoughts or feelings, so his suffering feels more frightening. Step 5: The narrator's calm tone and his final line, 'in pace requiescat,' show that he feels no guilt. This makes the reader feel uneasy because the story is told by someone who has committed a terrible crime and does not regret it. In short, the first-person narrator makes the murder more unsettling by hiding his true feelings, making the reader question what is real, and forcing us to experience the horror through the eyes of the person who caused it.
+
+Reference answer:
+1. Poe uses a first-person narrator, Montresor, who speaks calmly about killing Fortunato. 2. This calm tone surprises the reader because the action is violent. 3. The narrator hides his true feelings and calls the murder a revenge, which makes the reader question what he really feels. 4. Because we only hear one side, we feel uneasy: we wonder if Montresor is truly justified or simply dangerous. 5. The narrator also describes the victim in detailed, almost affectionate terms, which makes the cruelty more disturbing. 6. Overall, the first-person point of view pulls the reader into the narrator's private thoughts and makes the murder feel personal, secretive, and frightening.
+
+### [probability | intermediate]
+Question: Two fair six-sided dice are rolled. What is the probability that the sum of the numbers is 10?
+
+Tutor (fine-tuned):
+Step 1: Find the total number of possible outcomes. Each die has 6 faces, so there are 6 x 6 = 36 equally likely outcomes.
+
+Step 2: List the outcomes where the sum is 10. The possible ordered pairs are (4, 6), (5, 5), and (6, 4). There are 3 favorable outcomes.
+
+Step 3: Use the probability formula: probability = favorable outcomes / total outcomes. So the probability is 3/36.
+
+Step 4: Simplify the fraction. 3/36 = 1/12.
+
+Therefore, the probability that the sum is 10 is 1/12.
+
+Reference answer:
+Step 1: Count all possible outcomes.
+Each die has 6 faces, so when two dice are rolled there are 6 × 6 = 36 equally likely outcomes.
+
+Step 2: Find the outcomes whose sum is 10.
+List the pairs (first die, second die) that add to 10:
+(4, 6), (5, 5), and (6, 4).
+
+So there are 3 favorable outcomes.
+
+Step 3: Write the probability.
+Probability = number of favorable outcomes ÷ total number of outcomes
+Probability = 3/36
+
+Step 4: Simplify.
+3/36 = 1/12.
+
+Therefore, the probability that the sum is 10 is 1/12.
+
+### [algebra | beginner]
+Question: Solve for x: 2x - 4 = 10. Show each step and explain why you do it.
+
+Tutor (fine-tuned):
+We want x alone. Start with 2x - 4 = 10. Add 4 to both sides because -4 is subtracted from 2x; adding 4 cancels it. This gives 2x = 14. Next, divide both sides by 2 because x is multiplied by 2; dividing by 2 cancels the coefficient. This gives x = 7. Check: 2(7) - 4 = 14 - 4 = 10, so the solution is correct.
+
+Reference answer:
+We want to isolate x.
+
+Step 1: Add 4 to both sides. This removes the -4 from the left side.
+2x - 4 + 4 = 10 + 4
+2x = 14
+
+Step 2: Divide both sides by 2. This removes the 2 multiplying x.
+2x / 2 = 14 / 2
+x = 7
+
+Check the answer:
+2(7) - 4 = 14 - 4 = 10
+
+The solution is x = 7.

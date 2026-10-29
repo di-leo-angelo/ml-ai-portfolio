@@ -2,9 +2,10 @@
 
 Fine-tunes **Qwen3.8-27B** with **QLoRA** (4-bit NF4 base + LoRA adapters)
 so it answers school-level questions in a consistent tutor style: step by
-step, concise, and verifiable. Training runs on a **rented 24+ GB GPU**
-(RunPod / Vast.ai / Lambda); the local machine only handles data generation,
-code, and the small adapter that comes back.
+step, concise, and verifiable. Training runs on a **rented GPU** (this
+run: 48 GB 4090 for training, 24 GB 4090 for inference; RunPod / Vast.ai /
+Lambda); the local machine only handles data generation, code, and the
+small adapter that comes back.
 
 **Scope: proof of concept.** This project demonstrates the *pipeline* -
 synthetic data generation, QLoRA fine-tuning of a 27B model on a rented
@@ -16,19 +17,24 @@ system, not 150 different historical events), with high surface diversity and
 intentionally narrow topical coverage. Answer content is bounded by the
 generator model's knowledge (see *Limitations*).
 
-**Status: data pipeline validated; training run pending.** The full dataset
-was generated and split (1,500 samples; 1,120/150/230 train/dev/test;
-manifest in `data/split.json`), and a 20-sample content spot check found 0
-factual or arithmetic errors. The GPU training run has not been executed
-yet; the results sections below are placeholders pending the first full run.
+**Status: complete (2026-10-28/29).** The full dataset was generated and
+split (1,500 samples; 1,120/150/230 train/dev/test; manifest in
+`data/split.json`), a 20-sample content spot check found 0 factual or
+arithmetic errors, the QLoRA training run completed on a rented 48 GB 4090
+(72 min, 499 MB adapter), and the 255-generation test-set eval with
+base-vs-LoRA comparison completed on a 24 GB 4090. All numbers in
+*Results* and `reports/` are measured from the actual run, not estimates.
 
 ## Why this project
 
-Full fine-tuning of a 30B+ model needs roughly 200+ GB of GPU memory. QLoRA
-keeps the base model in 4 bits (read-only, ~17 GB) and trains only ~50-100 M
-LoRA parameters, so a single 24 GB consumer GPU (RTX 4090) can fine-tune the
-model. At ~$0.35-0.70/hour on GPU clouds, a full training run costs a few
-dollars, which makes iterating on data and hyperparameters practical.
+Full fine-tuning of a 30B+ model needs ~440 GB of GPU memory (bf16 weights
++ gradients + optimizer state). QLoRA keeps the base model in 4 bits
+(read-only, ~17 GB) and trains only 0.45 % of the parameters, so the
+fine-tune fits on a single rented card: this run peaked at ~30 GB during
+training (48 GB 4090, 72 min, ~$2.60) and at 19.3 GB during inference
+(standard 24 GB 4090). At ~$0.35-1.00/hour on GPU clouds a full training
+run costs a few dollars, which makes iterating on data and hyperparameters
+practical. The full memory arithmetic is in `reports/ANALYSIS.md`.
 
 ## The dataset: a generation recipe, not a download
 
@@ -108,9 +114,31 @@ model is never modified.
 
 ## Results
 
-_Pending the first full training run: dev-loss curve, a before/after
-generation comparison (`reports/eval_report.txt`), and the adapter published
-to the Hugging Face Hub._
+Measured from the 2026-10-28/29 run (training: 48 GB 4090; inference eval:
+24 GB 4090). Full reports: `reports/auto_eval/summary.md`,
+`reports/base_vs_lora/comparisons.md`, `reports/eval_report.txt`.
+
+| Stage | Measured |
+| --- | --- |
+| Training | 72 min 10 s, 280 steps; best dev loss 0.3671 at epoch 1 (epoch 2: 0.3691, no improvement → epoch-1 adapter kept); peak ~30 GB |
+| Adapter | 499 MB — 124.7 M trainable params = **0.454 %** of the 27.48 B model |
+| Inference | 255 test-set generations (230 LoRA + 25 base), peak 19.3 GB on the 24 GB card (4.7 GB headroom) |
+| Auto-grade (n=230) | **45 % exact match** (52/115) on answer-format questions; **92 % of answers within the ~350-word tutor budget** |
+| LLM judge (n=245, Qwen3-32B-AWQ) | mean 4.8 / 4.0 / 4.2 (correctness / format / completeness); saturates at 5.0 on STEM, weakest on humanities |
+| Base vs LoRA (first 25 test samples, paired) | same answers in the trained voice: the adapter transfers the step-by-step, self-checking tutor *format* without changing the base model's knowledge |
+
+How to read this: the fine-tune's goal is **tone transfer, not knowledge
+injection** (see the scope note above). The 45 % exact-match rate is the
+*base model's* knowledge ceiling on these questions — CS (13 %) is the base
+model's weakness, not the adapter's. LLM-judge scores are lenient by
+construction (a 32B judge saturates on plausible STEM reasoning), so the
+stricter signals are exact-match and word-budget compliance: 92 % of the
+fine-tuned model's answers respect the tutor's hard word budget, and the
+paired comparisons show it doing so in the trained step-by-step voice.
+
+Eval pipeline (all committed): `scripts/eval_run.py` (GPU, resume-safe) →
+`scripts/auto_grade.py` + `scripts/judge_run.py` (CPU / LLM-as-judge) →
+`scripts/make_base_vs_lora.py` (CPU, paired report).
 
 ## Reproduce
 
@@ -124,8 +152,15 @@ pip install -r projects/qwen-qlora/requirements-gpu.txt
 python projects/qwen-qlora/scripts/download_model.py
 cd projects/qwen-qlora
 python src/qwen_qlora/train.py --model-name models
-python src/qwen_qlora/evaluate.py --model-name models
-python src/qwen_qlora/inference.py --model-name models   # interactive chat
+
+# Test-set eval (GPU, resume-safe), then grading (CPU)
+python scripts/eval_run.py            # 255 generations: 230 lora + 25 base
+python scripts/auto_grade.py          # exact-match + format heuristics
+python scripts/judge_run.py           # LLM-as-judge; needs RUNPOD_API_KEY in .env
+python scripts/make_base_vs_lora.py   # paired base-vs-LoRA report
+
+python src/qwen_qlora/evaluate.py --model-name models   # quick side-by-side
+python src/qwen_qlora/inference.py --model-name models  # interactive chat
 ```
 
 ## Project-specific tests
@@ -153,8 +188,11 @@ stratified splitting) and run on CPU without downloading any weights.
 - Difficulty labels are assigned by the generator model and run a bit
   generous: "advanced" typically means solid high-school level rather than
   genuinely challenging. The three tiers are internally ordered.
-- Automatic evaluation of open-ended answers is hard; the report is a
-  qualitative side-by-side. An LLM-as-judge on a held-out subset is a
-  possible improvement.
+- LLM-as-judge scoring (Qwen3-32B-AWQ on 245/255 samples) is lenient by
+  construction: a 32B judge saturates near 5.0 on plausible STEM reasoning,
+  so exact-match and word-budget compliance are the stricter signals; the
+  judge is reported for format/completeness comparison, not as accuracy.
+  10/255 samples could not be parsed into scores and are excluded, with
+  coverage reported in the summary.
 - Single GPU with micro-batch 1 keeps the effective batch modest (8); a
   multi-GPU run could use a larger effective batch and more epochs.

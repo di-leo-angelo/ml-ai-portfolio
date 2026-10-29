@@ -13,3 +13,11 @@
 .env.*
 !.env.example
 .ipynb_checkpoints/
+
+# One-shot session ops (tied to a specific pod + local machine; not reproducible
+# project code) - watcher/teardown automation, run logs, probe scripts, handoff doc
+logs/
+RESUME.md
+scripts/watch_eval.ps1
+scripts/teardown_backup.ps1
+scripts/_*.py
