@@ -156,7 +156,7 @@ def main() -> None:
         bias="none",
         task_type="CAUSAL_LM",
         target_modules="all-linear",
-        modules_to_exclude=list(LORA_MODULES_TO_EXCLUDE),
+        exclude_modules=list(LORA_MODULES_TO_EXCLUDE),
     )
     model = get_peft_model(model, peft_config)
     model.print_trainable_parameters()
