@@ -13,6 +13,7 @@ this (or after each interruption) to regenerate summary.md.
 
 CPU-side orchestration only; the sole network call is the judge request.
 """
+
 import argparse
 import json
 import os
@@ -108,12 +109,14 @@ def parse_scores(text, batch):
             for i, rec in enumerate(batch):
                 obj = arr[i]
                 if isinstance(obj, dict):
-                    rows.append({
-                        "key": rec["key"],
-                        "correctness": int(obj.get("correctness", 0)),
-                        "format": int(obj.get("format", 0)),
-                        "completeness": int(obj.get("completeness", 0)),
-                    })
+                    rows.append(
+                        {
+                            "key": rec["key"],
+                            "correctness": int(obj.get("correctness", 0)),
+                            "format": int(obj.get("format", 0)),
+                            "completeness": int(obj.get("completeness", 0)),
+                        }
+                    )
     if len(rows) == len(batch):
         return rows
     rows = []
@@ -127,32 +130,47 @@ def parse_scores(text, batch):
         )
         m = pat.search(text)
         if m:
-            rows.append({
-                "key": rec["key"],
-                "correctness": int(m.group(1)),
-                "format": int(m.group(2)),
-                "completeness": int(m.group(3)),
-            })
+            rows.append(
+                {
+                    "key": rec["key"],
+                    "correctness": int(m.group(1)),
+                    "format": int(m.group(2)),
+                    "completeness": int(m.group(3)),
+                }
+            )
     return rows
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--limit", type=int, default=0,
-                    help="Judge at most N samples (0 = all missing). Smoke tests.")
-    ap.add_argument("--only", choices=["lora", "base", "all"], default="all",
-                    help="Condition filter (default: all).")
+    ap.add_argument(
+        "--limit",
+        type=int,
+        default=0,
+        help="Judge at most N samples (0 = all missing). Smoke tests.",
+    )
+    ap.add_argument(
+        "--only",
+        choices=["lora", "base", "all"],
+        default="all",
+        help="Condition filter (default: all).",
+    )
     args = ap.parse_args()
 
-    samples = [json.loads(l) for l in TEST_FILE.open(encoding="utf-8") if l.strip()]
-    records = [json.loads(l) for l in RAW.open(encoding="utf-8") if l.strip()]
+    with TEST_FILE.open(encoding="utf-8") as tf:
+        samples = [json.loads(line) for line in tf if line.strip()]
+    with RAW.open(encoding="utf-8") as rf:
+        records = [json.loads(line) for line in rf if line.strip()]
     done = set()
     if JUDGE_OUT.exists():
         for line in JUDGE_OUT.open(encoding="utf-8"):
             if line.strip():
                 done.add(json.loads(line)["key"])
-    todo = [r for r in records
-            if r["key"] not in done and (args.only == "all" or r["condition"] == args.only)]
+    todo = [
+        r
+        for r in records
+        if r["key"] not in done and (args.only == "all" or r["condition"] == args.only)
+    ]
     if args.limit:
         todo = todo[: args.limit]
     if not todo:
@@ -160,9 +178,11 @@ def main():
         return
 
     key = api_key()
-    batches = [todo[i:i + BATCH] for i in range(0, len(todo), BATCH)]
-    print(f"judging {len(todo)} samples in {len(batches)} batches of {BATCH} "
-          f"(endpoint {ENDPOINT})")
+    batches = [todo[i : i + BATCH] for i in range(0, len(todo), BATCH)]
+    print(
+        f"judging {len(todo)} samples in {len(batches)} batches of {BATCH} "
+        f"(endpoint {ENDPOINT})"
+    )
     ok = fail = 0
     with JUDGE_OUT.open("a", encoding="utf-8") as out:
         for bi, batch in enumerate(batches, 1):
@@ -174,7 +194,9 @@ def main():
             rows = None
             for attempt in range(1, MAX_RETRIES + 1):
                 try:
-                    rows = parse_scores(extract_content(call_judge(payload, key)), batch)
+                    rows = parse_scores(
+                        extract_content(call_judge(payload, key)), batch
+                    )
                     if rows:
                         break
                     print(f"batch {bi}/{len(batches)}: unparseable (attempt {attempt})")

@@ -9,6 +9,7 @@
 Re-run after the judge step to regenerate the final summary.md.
 Writes reports/auto_eval/graded.jsonl and reports/auto_eval/summary.md.
 """
+
 import json
 import re
 import statistics
@@ -76,16 +77,19 @@ def summarize(rows):
         "",
         "Method: greedy generation (max_new_tokens=512). Exact match = final-answer",
         "equivalence for math subjects (fractions compared exactly; 3/36 == 1/12).",
-        "Judge = Qwen3-32B-AWQ rubric scores merged from judge_scores.jsonl (if present).",
+        "Judge = Qwen3-32B-AWQ rubric scores merged from "
+        "judge_scores.jsonl (if present).",
         "",
-        "| subject | n | exact match | steps % | under ~350 words % | median words | median gen (s) |",
+        "| subject | n | exact match | steps % | under ~350 words % "
+        "| median words | median gen (s) |",
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for subject in sorted(by_subject):
         rows_ = by_subject[subject]
         matches = [r["exact_match"] for r in rows_ if r["math"]]
+        n_match = sum(1 for m in matches if m)
         exact = (
-            f"{100 * sum(1 for m in matches if m) / len(matches):.0f}% ({sum(1 for m in matches if m)}/{len(matches)})"
+            f"{100 * n_match / len(matches):.0f}% ({n_match}/{len(matches)})"
             if matches
             else "-"
         )
@@ -98,23 +102,31 @@ def summarize(rows):
             f"| {med_words:.0f} | {med_wall:.0f} |"
         )
     all_matches = [r["exact_match"] for r in rows if r["math"]]
+    n_all = sum(1 for m in all_matches if m)
     lines.append(
         f"| **overall** | **{len(rows)}** "
-        f"| **{100 * sum(1 for m in all_matches if m) / len(all_matches):.0f}% ({sum(1 for m in all_matches if m)}/{len(all_matches)})** "
+        f"| **{100 * n_all / len(all_matches):.0f}% ({n_all}/{len(all_matches)})** "
         f"| {cell(rows, lambda r: r['step_scaffolding'])} "
         f"| {cell(rows, lambda r: r['within_word_cap'])} | | |"
     )
 
     judge_rows = [r for r in rows if r.get("judge")]
     if judge_rows:
-        lines += ["", "## LLM-judge scores (1-5)", "",
-                  "| subject | n | correctness | format | completeness |",
-                  "| --- | --- | --- | --- | --- |"]
+        lines += [
+            "",
+            "## LLM-judge scores (1-5)",
+            "",
+            "| subject | n | correctness | format | completeness |",
+            "| --- | --- | --- | --- | --- |",
+        ]
         for subject in sorted(by_subject):
             jr = [r for r in by_subject[subject] if r.get("judge")]
             if not jr:
                 continue
-            avg = lambda field: sum(r["judge"].get(field, 0) for r in jr) / len(jr)
+
+            def avg(field, _jr=jr):
+                return sum(r["judge"].get(field, 0) for r in _jr) / len(_jr)
+
             lines.append(
                 f"| {subject} | {len(jr)} | {avg('correctness'):.2f} "
                 f"| {avg('format'):.2f} | {avg('completeness'):.2f} |"
@@ -123,7 +135,9 @@ def summarize(rows):
 
 
 def main():
-    samples = [json.loads(line) for line in TEST_FILE.open(encoding="utf-8") if line.strip()]
+    samples = [
+        json.loads(line) for line in TEST_FILE.open(encoding="utf-8") if line.strip()
+    ]
     judge = {}
     if JUDGE.exists():
         for line in JUDGE.open(encoding="utf-8"):
