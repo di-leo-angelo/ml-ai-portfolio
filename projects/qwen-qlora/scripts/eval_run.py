@@ -11,6 +11,7 @@ so base/lora pairs share identical prompts.
 Output: reports/auto_eval/raw_outputs.jsonl (append-only, resume-safe:
 re-running skips keys already present).
 """
+
 import argparse
 import json
 import time
@@ -23,7 +24,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 ROOT = Path(__file__).resolve().parents[1]
 TEST_FILE = ROOT / "data" / "test.jsonl"
 OUT_FILE = ROOT / "reports" / "auto_eval" / "raw_outputs.jsonl"
-COMPARE_PER_SUBJECT = 2                  # 2 x 10 subjects = 20
+COMPARE_PER_SUBJECT = 2  # 2 x 10 subjects = 20
 COMPARE_EXTRA = {"probability": 3, "algebra": 2}  # +5 -> 25 total
 
 
@@ -36,10 +37,14 @@ def pick_comparison_set(samples):
     for i, sample in enumerate(samples):
         by_subject.setdefault(sample["subject"], []).append(i)
     picked = []
-    for subject, idxs in by_subject.items():
+    for _, idxs in by_subject.items():
         picked.extend(idxs[:COMPARE_PER_SUBJECT])
     for subject, extra in COMPARE_EXTRA.items():
-        picked.extend(by_subject.get(subject, [])[COMPARE_PER_SUBJECT:COMPARE_PER_SUBJECT + extra])
+        picked.extend(
+            by_subject.get(subject, [])[
+                COMPARE_PER_SUBJECT : COMPARE_PER_SUBJECT + extra
+            ]
+        )
     return picked[:25]
 
 
@@ -48,7 +53,9 @@ def make_prompt(tokenizer, sample):
         {"role": "system", "content": sample["system"]},
         {"role": "user", "content": sample["user"]},
     ]
-    return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    return tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
 
 
 @torch.inference_mode()
@@ -76,12 +83,17 @@ def main():
             if line.strip():
                 done.add(json.loads(line)["key"])
 
-    nf4 = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4",
-                             bnb_4bit_compute_dtype=torch.bfloat16)
+    nf4 = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16,
+    )
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     base_model = AutoModelForCausalLM.from_pretrained(
-        args.model, quantization_config=nf4, device_map="auto", trust_remote_code=True)
-    print(f"base model loaded: {sum(p.numel() for p in base_model.parameters()) / 1e9:.1f}B params (4-bit)", flush=True)
+        args.model, quantization_config=nf4, device_map="auto", trust_remote_code=True
+    )
+    n_params = sum(p.numel() for p in base_model.parameters())
+    print(f"base model loaded: {n_params / 1e9:.1f}B params (4-bit)", flush=True)
 
     jobs = [(f"{i}:lora", i, "lora") for i in range(len(samples))]
     jobs += [(f"{i}:base", i, "base") for i in compare_ids]
@@ -97,7 +109,9 @@ def main():
             print("adapter active", flush=True)
         model = lora_model if condition == "lora" else base_model
         start = time.time()
-        output = generate(model, tokenizer, make_prompt(tokenizer, samples[i]), args.max_new_tokens)
+        output = generate(
+            model, tokenizer, make_prompt(tokenizer, samples[i]), args.max_new_tokens
+        )
         record = {
             "key": key,
             "sample_id": i,
@@ -112,9 +126,16 @@ def main():
         torch.cuda.reset_peak_memory_stats()
         peak_gb = max(peak_gb, torch.cuda.max_memory_allocated() / 1e9)
         count += 1
-        print(f"[{count}] {key} {record['wall_s']}s peak {peak_gb:.1f}GB :: {output[:70]}", flush=True)
+        print(
+            f"[{count}] {key} {record['wall_s']}s peak {peak_gb:.1f}GB "
+            f":: {output[:70]}",
+            flush=True,
+        )
 
-    print(f"DONE: {count} generations, peak VRAM {peak_gb:.1f} GB. Output: {OUT_FILE}", flush=True)
+    print(
+        f"DONE: {count} generations, peak VRAM {peak_gb:.1f} GB. Output: {OUT_FILE}",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ judge scores (when present) for both.
 
 CPU-only; run it after the full raw_outputs.jsonl is pulled back.
 """
+
 import json
 import re
 from pathlib import Path
@@ -31,12 +32,15 @@ def metrics(text):
 def judge_str(j):
     if not j:
         return ""
-    return (f"judge {j['correctness']}/{j['format']}/{j['completeness']} "
-            "(corr/format/complete)")
+    return (
+        f"judge {j['correctness']}/{j['format']}/{j['completeness']} "
+        "(corr/format/complete)"
+    )
 
 
 def main():
-    samples = [json.loads(l) for l in TEST_FILE.open(encoding="utf-8") if l.strip()]
+    with TEST_FILE.open(encoding="utf-8") as tf:
+        samples = [json.loads(line) for line in tf if line.strip()]
     recs = {}
     for line in RAW.open(encoding="utf-8"):
         if line.strip():
@@ -69,6 +73,8 @@ def main():
     for i, s, base, lora in pairs:
         bw, bs = metrics(base["output"])
         lw, ls = metrics(lora["output"])
+        base_steps = "yes" if bs else "no"
+        lora_steps = "yes" if ls else "no"
         jb = judge.get(f"{i}:base")
         jl = judge.get(f"{i}:lora")
         lines += [
@@ -76,13 +82,15 @@ def main():
             "",
             f"**Question:** {s['user']}",
             "",
-            f"**Base model** ({base['wall_s']}s, {bw} words, steps={'yes' if bs else 'no'}"
-            + (f", {judge_str(jb)}" if jb else "") + "):",
+            f"**Base model** ({base['wall_s']}s, {bw} words, steps={base_steps}"
+            + (f", {judge_str(jb)}" if jb else "")
+            + "):",
             "",
             base["output"],
             "",
-            f"**LoRA (fine-tuned)** ({lora['wall_s']}s, {lw} words, steps={'yes' if ls else 'no'}"
-            + (f", {judge_str(jl)}" if jl else "") + "):",
+            f"**LoRA (fine-tuned)** ({lora['wall_s']}s, {lw} words, steps={lora_steps}"
+            + (f", {judge_str(jl)}" if jl else "")
+            + "):",
             "",
             lora["output"],
             "",
