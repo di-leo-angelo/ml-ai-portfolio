@@ -20,6 +20,7 @@ TOML and *writes* JSON/JSONL.
 
 from __future__ import annotations
 
+import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -310,3 +311,37 @@ def load_run_config(path: str | Path) -> RunConfig:
         output_dir=str(raw.get("output_dir", "reports")),
         gate=gate,
     )
+
+
+# --- env files -----------------------------------------------------------
+
+
+def parse_env_file(path: str | Path) -> dict[str, str]:
+    """Parse ``KEY=VALUE`` lines from a dotenv-style file (P1's env.py pattern).
+
+    Blank lines and ``#`` comments are ignored; single- or double-quoted
+    values are unquoted. Returns an empty dict when the file is absent.
+    """
+    file_path = Path(path)
+    if not file_path.is_file():
+        return {}
+    values: dict[str, str] = {}
+    for raw_line in file_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        values[key.strip()] = value.strip().strip("\"'")
+    return values
+
+
+def apply_env_file(path: str | Path, override: bool = False) -> int:
+    """Load a dotenv file into ``os.environ`` (never clobbering existing
+    variables unless ``override=True``). Returns the number applied."""
+    values = parse_env_file(path)
+    applied = 0
+    for key, value in values.items():
+        if override or key not in os.environ:
+            os.environ[key] = value
+            applied += 1
+    return applied

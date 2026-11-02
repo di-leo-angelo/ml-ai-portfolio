@@ -1,0 +1,30 @@
+# M1 acceptance smoke: 10 tasks against the free public RunPod endpoint
+# (no deployment needed; RUNPOD_API_KEY is sent when available). Use
+# --limit 10. The judge table is required by the M0 config contract; M2
+# will judge the same generations through this endpoint.
+
+name = "smoke-runpod"
+data = "projects/qwen-qlora/data/test.jsonl"
+temperature = 0.0
+max_tokens = 256
+output_dir = "projects/llm-eval-harness/reports/smoke-runpod"
+
+[conditions.api_smoke]
+seed = 0
+
+[conditions.api_smoke.backend]
+kind = "api"
+base_url = "https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1"
+model = "qwen3-32b-awq"
+api_key_env = "RUNPOD_API_KEY"
+
+[judge]
+dimensions = ["correctness", "tone", "format", "safety", "helpfulness"]
+temperature = 0.0
+max_tokens = 512
+
+[judge.backend]
+kind = "api"
+base_url = "https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1"
+model = "qwen3-32b-awq"
+api_key_env = "RUNPOD_API_KEY"

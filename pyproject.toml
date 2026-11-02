@@ -39,7 +39,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ml_ai_portfolio"]
+packages = ["src/ml_ai_portfolio", "projects/llm-eval-harness/src/llm_eval_harness"]
 
 [tool.pytest.ini_options]
 testpaths = [
