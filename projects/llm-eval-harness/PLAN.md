@@ -386,6 +386,22 @@ runs the moment the split exists (locally or on a pod). (2) Judge
 dimensions are validated at config load (fail fast), one layer stricter
 than the original plan.
 
+**Status (2026-11-02, M1):** M1 complete - backends package (`api`/
+`runpod` via stdlib urllib with P1's retry constants + response
+normalization, optional concurrency; `local` HF mirroring P1's eval
+loading recipe), resume-safe generation with manifest, and the CLI
+(`generate`, `import-tasks`). 41 tests green (27 M0 + 14 M1, including
+the fake-HTTP loopback server suite), ruff clean. Live acceptance met:
+10-task smoke vs the free RunPod endpoint completed (records +
+manifest in `reports/smoke-runpod/`); a run killed mid-way re-ran to
+generate only the remainder (demonstrated live at 42/80 then 68/80
+then 12/80 - zero duplicate keys). Two further deviations noted: (3)
+the package is `llm_eval_harness` (section 4 says `llm_eval`), and
+`data` accepts raw P1 files via first-line sniffing so the dogfood
+config works without a separate import step. Remaining M1 item: the
+local-backend pod smoke (adapter on/off, peak VRAM) awaits a GPU
+session.
+
 **Sequencing note:** M1–M3 can interleave with M4's labeling (label the P1
 outputs you already have while M3 builds). M6 is the real gate: if P1's
 numbers don't reproduce, M2's port has a bug — find it before M6, not after.
