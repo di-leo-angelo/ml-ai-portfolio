@@ -5,7 +5,8 @@
 # P1 dogfood run once the backends land (M1).
 
 name = "qwen-qlora-dogfood"
-# P1's 230-row test split (gitignored; generated on a GPU pod).
+# P1's 230-row test split (gitignored; generated locally - see
+# projects/qwen-qlora/data/split.json for the manifest and hashes).
 data = "projects/qwen-qlora/data/test.jsonl"
 temperature = 0.0
 max_tokens = 1024

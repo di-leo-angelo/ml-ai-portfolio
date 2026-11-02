@@ -50,8 +50,10 @@ uv run pytest projects/llm-eval-harness/tests -q
 
 ## Importing the P1 test split
 
-P1's 230-row `test.jsonl` is gitignored (generated on a GPU pod). Once
-it is present locally (or on a pod), import it as harness tasks:
+P1's 230-row `test.jsonl` is gitignored - it was generated locally in
+`projects/qwen-qlora/data/` (manifest + hashes in `data/split.json`) and
+pushed to the GPU pod via `scp` for the training/eval runs. Once it is
+present locally, import it as harness tasks:
 
 ```python
 from llm_eval_harness.legacy import import_jsonl
