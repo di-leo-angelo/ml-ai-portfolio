@@ -48,6 +48,7 @@ testpaths = [
     "projects/cifar10-cnn/tests",
     "projects/bert-sentiment/tests",
     "projects/qwen-qlora/tests",
+    "projects/llm-eval-harness/tests",
 ]
 addopts = "-ra"
 pythonpath = [
@@ -55,6 +56,7 @@ pythonpath = [
     "projects/cifar10-cnn/src",
     "projects/bert-sentiment/src",
     "projects/qwen-qlora/src",
+    "projects/llm-eval-harness/src",
 ]
 
 [tool.ruff]

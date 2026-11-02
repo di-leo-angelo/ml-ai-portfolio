@@ -1,0 +1,5 @@
+{"id": "demo_0001", "prompt": "Solve for x: 2x + 3 = 11. Show each step.", "system": "You are a patient, rigorous tutor.", "reference": "x = 4", "subject": "algebra", "difficulty": "beginner"}
+{"id": "demo_0002", "prompt": "Why are hot deserts often found around 30 degrees north and south latitude?", "subject": "world_geography", "difficulty": "beginner"}
+{"id": "demo_0003", "prompt": "Explain the difference between a stack and a queue, and give one real use case for each.", "reference": "A stack is LIFO; a queue is FIFO.", "subject": "computer_science", "difficulty": "intermediate", "tags": ["data-structures"]}
+{"id": "demo_0004", "prompt": "A fair die is rolled twice. What is the probability that the sum of the two rolls is 7?", "reference": "6/36 = 1/6", "subject": "probability", "difficulty": "beginner"}
+{"id": "demo_0005", "prompt": "Balance the equation Fe + O2 -> Fe2O3 and explain what the coefficients mean.", "reference": "4 Fe + 3 O2 -> 2 Fe2O3", "subject": "chemistry", "difficulty": "beginner", "tags": ["stoichiometry"]}

@@ -1,0 +1,56 @@
+# Example run config for llm-eval-harness (M0 scaffold).
+#
+# TOML is config, JSON/JSONL is data: this file is read-only input.
+# The backends reference P1's actual setup so this config becomes the
+# P1 dogfood run once the backends land (M1).
+
+name = "qwen-qlora-dogfood"
+# P1's 230-row test split (gitignored; generated on a GPU pod).
+data = "projects/qwen-qlora/data/test.jsonl"
+temperature = 0.0
+max_tokens = 1024
+output_dir = "reports/qwen-qlora"
+
+# --- conditions under test ---------------------------------------------
+
+[conditions.base]
+seed = 0
+
+[conditions.base.backend]
+kind = "local"
+model_id = "Qwen/Qwen3.8-27B"
+dtype = "bfloat16"
+load_in_4bit = true
+
+[conditions.lora]
+seed = 0
+
+[conditions.lora.backend]
+kind = "local"
+model_id = "Qwen/Qwen3.8-27B"
+adapter_path = "projects/qwen-qlora/runs/best-lora"
+dtype = "bfloat16"
+load_in_4bit = true
+
+# --- judge ---------------------------------------------------------------
+# P1's judge: Qwen3-32B-AWQ via the RunPod public OpenAI-compatible
+# endpoint (no deployment, no auth needed - set RUNPOD_API_KEY only if
+# you point at a private serverless endpoint instead).
+
+[judge]
+dimensions = ["correctness", "tone", "format", "safety", "helpfulness"]
+temperature = 0.0
+max_tokens = 512
+
+[judge.backend]
+kind = "api"
+base_url = "https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1"
+model = "qwen3-32b-awq"
+api_key_env = "RUNPOD_API_KEY"
+
+# --- optional CI gate (active once a baseline is committed) ------------
+# [gate]
+# metrics = ["judge.correctness.mean", "judge.tone.mean"]
+# min_delta = -0.1
+# ci_level = 0.95
+# baseline = "baselines/qwen-qlora.json"
