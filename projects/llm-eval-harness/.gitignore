@@ -1,0 +1,15 @@
+# Data (imported/generated - see README quickstart)
+/data/*
+!/data/legacy/
+/data/legacy/*
+!/data/legacy/.gitkeep
+
+# Generated run outputs (final reports force-added, same convention as P1)
+/reports/*
+!/reports/.gitkeep
+
+# Local secrets and misc
+.env
+.env.*
+!.env.example
+.ipynb_checkpoints/
