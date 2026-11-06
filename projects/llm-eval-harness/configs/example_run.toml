@@ -48,7 +48,8 @@ max_tokens = 512
 [judge.backend]
 kind = "api"
 base_url = "https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1"
-model = "qwen3-32b-awq"
+# The gateway expects the catalog model name, not the endpoint id.
+model = "Qwen/Qwen3-32B-AWQ"
 api_key_env = "RUNPOD_API_KEY"
 
 # --- optional CI gate (active once a baseline is committed) ------------

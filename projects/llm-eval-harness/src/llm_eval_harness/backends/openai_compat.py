@@ -7,7 +7,11 @@ Retry policy (P1 constants): up to 3 attempts, sleeping 5s x attempt on
 network errors and 408/429/5xx; any other 4xx fails fast. Response shapes
 are normalized across OpenAI (``choices[].message.content``), RunPod
 serverless (``output.content`` / ``output`` string), and bare ``content``
-(port of P1's ``extract_content``).
+(port of P1's ``extract_content``). A 200 response whose body is a
+gateway error object (``code >= 400`` or ``object == "error"``) raises
+``GenerationError`` instead of being stringified into a record - the
+live qwen3-32b-awq smoke proved such bodies reach this path uncaught.
+Unrecognized non-error shapes also fail loudly (no silent ``str()``).
 """
 
 from __future__ import annotations
@@ -27,7 +31,15 @@ RETRYABLE_STATUS: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})
 
 
 def extract_content(resp: Any) -> str:
-    """Pull the text out of OpenAI-style or RunPod-serverless responses."""
+    """Pull the text out of OpenAI-style or RunPod-serverless responses.
+
+    Raises ``ValueError`` on unrecognized shapes: a body without
+    ``choices``/``output``/``content`` is malformed (or an error object
+    that slipped past :func:`_error_body_message`) and must never be
+    silently stringified into a record's ``output``.
+    """
+    if isinstance(resp, str):
+        return resp
     if isinstance(resp, dict):
         if "choices" in resp:
             return resp["choices"][0]["message"]["content"]
@@ -38,7 +50,29 @@ def extract_content(resp: Any) -> str:
             return str(output)
         if "content" in resp:
             return resp["content"]
-    return str(resp)
+        raise ValueError(
+            "unrecognized response shape (no choices/output/content): "
+            f"{str(resp)[:200]}"
+        )
+    raise ValueError(f"unrecognized response shape: {type(resp).__name__}")
+
+
+def _error_body_message(resp: Any) -> str | None:
+    """Error text when a 200 body is a gateway error object, else None.
+
+    Some OpenAI-compatible gateways (including the RunPod public
+    endpoint) answer HTTP 200 with an OpenAI-style error body such as
+    ``{"code": 404, "message": "…", "object": "error", …}``. Such a body
+    must fail the job - never be written into ``generations.jsonl``.
+    """
+    if not isinstance(resp, dict):
+        return None
+    code = resp.get("code")
+    if isinstance(code, int) and code >= 400:
+        return str(resp.get("message") or resp)
+    if resp.get("object") == "error":
+        return str(resp.get("message") or resp)
+    return None
 
 
 def extract_usage(resp: Any) -> tuple[int | None, int | None]:
@@ -95,7 +129,7 @@ class OpenAICompatBackend:
             )
             try:
                 with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                    return json.loads(response.read().decode("utf-8"))
+                    body = json.loads(response.read().decode("utf-8"))
             except urllib.error.HTTPError as exc:
                 if exc.code not in RETRYABLE_STATUS:
                     raise GenerationError(
@@ -105,6 +139,13 @@ class OpenAICompatBackend:
                 last_error = exc
             except (urllib.error.URLError, OSError) as exc:
                 last_error = exc
+            else:
+                error = _error_body_message(body)
+                if error is not None:
+                    raise GenerationError(
+                        f"HTTP 200 error body from {self.endpoint}: {error}"
+                    )
+                return body
             if attempt < self.max_retries:
                 time.sleep(self.retry_delay * attempt)
         raise GenerationError(

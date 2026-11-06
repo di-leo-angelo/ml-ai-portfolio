@@ -12,8 +12,11 @@ tested: `api`/`runpod` backends (stdlib urllib, P1 retry constants,
 response-shape normalization, optional concurrency), a `local` HF
 backend (4-bit + LoRA, GPU pod), and resume-safe `generations.jsonl`
 output (kill mid-run, re-run generates only the remainder). A 10-task
-live smoke against the free RunPod endpoint - including a kill +
-resume - is recorded under `reports/` (gitignored). The local-backend
+live smoke against the free RunPod endpoint and a 10/20 partial +
+resume re-run (zero duplicate keys) are recorded under `reports/`
+(gitignored; re-recorded 2026-11-05 after the original run was found
+to have captured gateway 404 error bodies - see PLAN.md section 10).
+The local-backend
 pod smoke (adapter on/off, peak VRAM) awaits a GPU session. Judging/
 grading (M2), statistics (M3), calibration (M4), and the CI gate (M5)
 land in the order set out in [PLAN.md](PLAN.md).

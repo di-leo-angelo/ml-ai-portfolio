@@ -134,6 +134,50 @@ def test_4xx_fails_fast(fake_api) -> None:
     assert len(controller.requests) == 1
 
 
+def test_error_body_in_200_fails(fake_api) -> None:
+    """A 200 body that is a gateway error object must fail the job.
+
+    This is the exact shape the live qwen3-32b-awq smoke captured: the
+    RunPod OpenAI-compatible gateway answered HTTP 200 with
+    ``{"code": 404, "object": "error", ...}``, which the pre-fix code
+    stringified into the record's ``output``.
+    """
+    controller, base_url = fake_api
+    controller.script = [
+        (
+            "ok",
+            {
+                "code": 404,
+                "message": "The model `x` does not exist.",
+                "object": "error",
+                "param": None,
+                "type": "NotFoundError",
+            },
+        )
+    ]
+    backend = OpenAICompatBackend(
+        name="c", base_url=base_url, model="m", retry_delay=0.01
+    )
+    with pytest.raises(GenerationError, match="error body"):
+        list(backend.generate([_job()]))
+    assert len(controller.requests) == 1  # no retry on an error body
+
+
+def test_error_body_writes_no_record_and_exits_1(tmp_path, fake_api) -> None:
+    """Runner level: an error body must persist no record and exit 1."""
+    controller, base_url = fake_api
+    controller.script = [
+        ("ok", {"code": 404, "message": "model gone", "object": "error"})
+    ]
+    data = tmp_path / "tasks.jsonl"
+    data.write_text(json.dumps({"id": "a", "prompt": "P"}) + "\n", encoding="utf-8")
+    out_dir = tmp_path / "out"
+    config = tmp_path / "run.toml"
+    _write_run_toml(config, base_url, data, out_dir)
+    assert run_generation(config) == 1
+    assert not (out_dir / "generations.jsonl").exists()
+
+
 def test_concurrent_generation(fake_api) -> None:
     controller, base_url = fake_api
     backend = OpenAICompatBackend(
@@ -156,6 +200,15 @@ def test_response_shape_normalization() -> None:
     assert extract_content({"output": "c"}) == "c"
     assert extract_content({"content": "d"}) == "d"
     assert extract_content("raw") == "raw"
+
+
+def test_unrecognized_shape_fails_loudly() -> None:
+    # No silent str() fallback: an unrecognized body must raise so it
+    # can never be written into generations.jsonl as a fake "output".
+    with pytest.raises(ValueError, match="unrecognized"):
+        extract_content({"foo": "bar"})
+    with pytest.raises(ValueError, match="unrecognized"):
+        extract_content(42)
 
 
 def _write_run_toml(path: Path, base_url: str, data: Path, out_dir: Path) -> None:

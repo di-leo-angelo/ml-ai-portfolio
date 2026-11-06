@@ -402,6 +402,27 @@ config works without a separate import step. Remaining M1 item: the
 local-backend pod smoke (adapter on/off, peak VRAM) awaits a GPU
 session.
 
+**Status (2026-11-05, M1 re-audit):** on re-verification the recorded M1
+live smoke was found to be poisoned: all 90 records under
+`reports/smoke-runpod/` and `reports/smoke-kill-demo/` carried a
+stringified gateway 404 (`The model 'qwen3-32b-awq' does not exist`) in
+`output` instead of model text — "Live acceptance met" above held for
+the resume mechanism but never for the outputs. Two root causes:
+(4) the smoke/dogfood configs sent the endpoint id as the `model` name
+where the gateway expects the catalog model name `Qwen/Qwen3-32B-AWQ`;
+and (5) the OpenAI-compatible backend wrote an HTTP 200 + error-body
+response into `generations.jsonl`, because `extract_content` silently
+stringified unrecognized shapes and records carry no error/status field
+(persisted keys are skipped on re-run, so the poison was permanent).
+Fixed: both configs now send the real model name; a 200 + error body
+(`code >= 400` or `object == "error"`) now raises `GenerationError`
+(no retry, no record persisted) and `extract_content` fails loudly on
+unrecognized shapes (3 new tests; 44 green, ruff clean). Live evidence
+re-recorded: the 10-task smoke completed with real outputs (tokens +
+wall time per record), and a 10/20 partial run re-ran to generate only
+the remaining 10 (zero duplicate keys). Remaining M1 item unchanged:
+local-backend pod smoke (adapter on/off, peak VRAM).
+
 **Sequencing note:** M1–M3 can interleave with M4's labeling (label the P1
 outputs you already have while M3 builds). M6 is the real gate: if P1's
 numbers don't reproduce, M2's port has a bug — find it before M6, not after.
