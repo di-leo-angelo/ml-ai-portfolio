@@ -140,6 +140,19 @@ Eval pipeline (all committed): `scripts/eval_run.py` (GPU, resume-safe) →
 `scripts/auto_grade.py` + `scripts/judge_run.py` (CPU / LLM-as-judge) →
 `scripts/make_base_vs_lora.py` (CPU, paired report).
 
+> **Frozen reference (2026-11-05):** these eval scripts are a *reference
+> implementation*, not maintained going forward. The eval framework they
+> encode - task JSONL, deterministic graders (exact-match for math
+> subjects, word budget, step scaffolding), the batched LLM judge with a
+> resume-safe `judge_scores.jsonl` - is ported into
+> [projects/llm-eval-harness](../llm-eval-harness/README.md) (P0), which
+> now owns new evaluation work. The port is validated against this
+> project's recorded outputs: P0's graders reproduce `graded.jsonl`
+> field-for-field on all 230 LoRA rows (0/7-field mismatches), and its
+> `configs/dogfood_p1.toml` judges the imported 230 lora + 25 base
+> generations with the same Qwen3-32B-AWQ endpoint and P1's exact three
+> dimensions. See the "Correspondence with P1" section of the P0 README.
+
 ## Reproduce
 
 ```bash

@@ -234,7 +234,9 @@ def _write_run_toml(path: Path, base_url: str, data: Path, out_dir: Path) -> Non
         "[judge.backend]",
         'kind = "api"',
         f'base_url = "{base_url}"',
-        'model = "fake-model"',
+        # distinct from the condition's model: the judge!=testee guard
+        # rejects a config where the judge grades its own outputs
+        'model = "fake-judge"',
         'api_key_env = "FAKE_HARNESS_KEY"',
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

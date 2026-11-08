@@ -427,6 +427,60 @@ local-backend pod smoke (adapter on/off, peak VRAM).
 outputs you already have while M3 builds). M6 is the real gate: if P1's
 numbers don't reproduce, M2's port has a bug — find it before M6, not after.
 
+**Status (2026-11-05, M2 prep):** M2 code is complete and CPU-verified;
+the live judging run is pending. Shipped: `graders/` package (exact-match
++ format graders ported verbatim from P1's `auto_grade.py`; `judge.py`
+with the P1 `judge_run.py` port generalized - rubric anchors quoted
+verbatim from the config, batched judging, parse ladder
+`json/fence/span/regex` with a per-row `parse` tag, resume-safe
+`judge_scores.jsonl`, position-swapped pairwise with
+disagreement-as-position-bias-tell handling), config-extensible judge
+dimensions, `import-generations`, Pearson/Spearman agreement stats, and
+CLI commands `grade` / `judge` (with `--against` legacy-correlation
+report) / `pairwise`. 102 tests green (44 M1 + 58 new), ruff clean.
+Live CPU validation: `import-generations` on P1's 255 recorded outputs
+(230 lora + 25 base) and `grade` on the result reproduce P1's
+`graded.jsonl` **field-for-field on all 230 lora rows across all 7
+fields (0 mismatches)** - the 45 % (52/115) exact-match and 92 %
+word-budget numbers print identically. Four further deviations noted:
+(6) judge `dimensions` accepts a TOML table of `name -> 1..5 anchor
+line` in addition to the list of built-in names - custom rubrics report
+`RUBRIC_VERSION == "custom"` so gate comparisons never mix the two;
+`configs/dogfood_p1.toml` uses this to replicate P1's frozen three
+dimensions (correctness/format/completeness) and P1's batch-5 /
+max_tokens-1024 judge settings. (7) a new `imported` backend kind
+(provenance-only; `build_backend` refuses to generate) plus
+`legacy.import_generations` + `p1_key_to_task_id` map P1's
+`raw_outputs.jsonl` / `"N:condition"` keys onto the harness's
+`p1_XXXX` task ids, so the dogfood judges P1's recorded outputs without
+re-running any GPU code. (8) the judge!=testee guard is implemented at
+config load (identical model = ConfigError; same-family = warning,
+family = org prefix or leading alphabetic run) and again
+data-drivenly against the generation records' `model` fields at judge
+time (exit 2 on identical). (9) Pearson/Spearman (midranks) landed in
+`stats/agreement.py` ahead of M3 because the M2 acceptance criteria
+need the correlation check. M1 re-audit follow-up (found by the new
+store tests): a crash-torn final JSONL line is now self-healed on the
+next append (in both `GenerationStore` and `JudgeScoreStore`) -
+previously it would become a middle line and trip the loud
+malformed-line check on the second resume. **M2 live acceptance
+runbook:** (1) `import-generations --input
+projects/qwen-qlora/reports/auto_eval/raw_outputs.jsonl --output
+projects/llm-eval-harness/reports/qwen-qlora-dogfood/generations.jsonl`
+(done - 255 rows); (2) `grade --config configs/dogfood_p1.toml` (done -
+parity verified); (3) `judge --config configs/dogfood_p1.toml
+--env-file projects/qwen-qlora/.env --against
+projects/qwen-qlora/reports/auto_eval/judge_scores.jsonl` - expect
+parse coverage >= 97% on 255 samples (51 batches of 5)
+and pearson >= 0.8 on correctness/format/completeness vs the 245-row
+legacy overlap (P1 dropped 10 lora rows silently - its 10/255 incident;
+the P0 run must score all 255); (4) `pairwise --config
+configs/dogfood_p1.toml --condition-a lora --condition-b base
+--env-file projects/qwen-qlora/.env --limit 25` - 25 pairs with swap.
+Expected to print the same-family warning (Qwen3-32B judge on
+Qwen3.8-27B outputs) - that is the known, accepted self-family risk of
+the P1 replication.
+
 ## 11. Risks & mitigations
 
 | Risk | Mitigation |

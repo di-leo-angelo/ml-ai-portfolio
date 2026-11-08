@@ -15,7 +15,12 @@ import os
 from collections.abc import Iterator, Sequence
 from typing import Protocol
 
-from ..config import ApiBackend, LocalBackend, RunPodBackend
+from ..config import (
+    ApiBackend,
+    ImportedBackend,
+    LocalBackend,
+    RunPodBackend,
+)
 from ..config import Backend as BackendConfig
 from .base import (
     GenerationError,
@@ -77,5 +82,11 @@ def build_backend(
             model=backend.model or backend.endpoint_id,
             api_key=os.environ.get(backend.api_key_env) or None,
             concurrency=concurrency,
+        )
+    if isinstance(backend, ImportedBackend):
+        raise GenerationError(
+            f"condition {condition_name!r}: 'imported' backends carry "
+            "provenance only - import the recorded outputs with "
+            "`import-generations` instead of generating them"
         )
     raise TypeError(f"unsupported backend config: {backend!r}")

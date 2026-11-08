@@ -6,20 +6,26 @@ OpenAI-compatible API / RunPod), LLM-as-judge with structured rubric
 scoring, calibration against human labels, bootstrap/McNemar statistics,
 and a CI regression gate.
 
-**Status: M1 - backends + generation** - run config, task/rubric data
-model, P1 legacy import, and the generation layer are implemented and
-tested: `api`/`runpod` backends (stdlib urllib, P1 retry constants,
-response-shape normalization, optional concurrency), a `local` HF
-backend (4-bit + LoRA, GPU pod), and resume-safe `generations.jsonl`
-output (kill mid-run, re-run generates only the remainder). A 10-task
-live smoke against the free RunPod endpoint and a 10/20 partial +
-resume re-run (zero duplicate keys) are recorded under `reports/`
-(gitignored; re-recorded 2026-11-05 after the original run was found
-to have captured gateway 404 error bodies - see PLAN.md section 10).
-The local-backend
-pod smoke (adapter on/off, peak VRAM) awaits a GPU session. Judging/
-grading (M2), statistics (M3), calibration (M4), and the CI gate (M5)
-land in the order set out in [PLAN.md](PLAN.md).
+**Status: M2 - graders + judge (code complete; live judging pending)** -
+M0/M1 above, plus the deterministic graders (P1's `auto_grade.py` ported
+verbatim: exact-match for math subjects, word budget, step scaffolding),
+the LLM-as-judge (P1's `judge_run.py` ported and generalized: rubric
+anchors quoted verbatim, batched judging, parse ladder with per-row
+`parse` tags, resume-safe `judge_scores.jsonl`, position-swapped
+pairwise), config-extensible judge dimensions (the built-in five, or a
+custom spec - `configs/dogfood_p1.toml` replicates P1's frozen three
+dimensions exactly), a judge!=testee config guard (identical model is a
+load error, same-family is a loud warning), `import-generations` (P1's
+`raw_outputs.jsonl` -> harness generations), and Pearson/Spearman
+agreement stats for the port validation. 102 tests green (CPU-only);
+the port is validated against P1's recorded outputs: graders reproduce
+`graded.jsonl` field-for-field on all 230 LoRA rows (0/7-field
+mismatches). Remaining M2 acceptance items are live: judge the imported
+255 generations (parse coverage >= 97%), correlate with P1's legacy
+`judge_scores.jsonl` (>= 0.8/dimension), and the 25-pair pairwise smoke
+(runbook below). Judging/grading (M2), statistics (M3), calibration
+(M4), and the CI gate (M5) land in the order set out in
+[PLAN.md](PLAN.md).
 
 ## Design notes
 
@@ -46,10 +52,12 @@ land in the order set out in [PLAN.md](PLAN.md).
 | `src/llm_eval_harness/tasks.py` | Task spec: JSONL load + validation |
 | `src/llm_eval_harness/rubric.py` | five-dimension rubric with 1..5 anchors |
 | `src/llm_eval_harness/legacy.py` | P1 (qwen-qlora) split/seed to task import |
-| `src/llm_eval_harness/backends/` | `api`/`runpod` (OpenAI-compatible, stdlib urllib) + `local` HF (4-bit + LoRA) generation backends |
-| `src/llm_eval_harness/runner.py` | run orchestration: manifest + resume-safe generation |
-| `src/llm_eval_harness/cli.py` | `python -m llm_eval_harness generate / import-tasks` |
-| `configs/` | run configs (dogfood example + free-endpoint smoke) + example tasks file |
+| `src/llm_eval_harness/backends/` | `api`/`runpod` (OpenAI-compatible, stdlib urllib) + `local` HF (4-bit + LoRA) generation backends; `imported` is a provenance-only kind (no generation) |
+| `src/llm_eval_harness/graders/` | deterministic graders (P1 `auto_grade.py` port: exact-match, format) + LLM judge (prompt, parse ladder, resume-safe store, pairwise with swap) |
+| `src/llm_eval_harness/stats/` | agreement statistics (Pearson/Spearman with midranks; M3 adds bootstrap/McNemar) |
+| `src/llm_eval_harness/runner.py` | run orchestration: manifest + resume-safe generation + grade/judge/pairwise |
+| `src/llm_eval_harness/cli.py` | `python -m llm_eval_harness generate / import-tasks / import-generations / grade / judge / pairwise` |
+| `configs/` | run configs (dogfood example + free-endpoint smoke + `dogfood_p1.toml`, the M2 acceptance config) + example tasks file |
 | `tests/` | CPU-only unit tests (no models, no real network; loopback fake HTTP only) |
 | `data/legacy/` | imported P1 task files (generated, gitignored) |
 | `reports/` | run outputs (gitignored; final reports force-added) |
@@ -70,6 +78,32 @@ uv run python -m llm_eval_harness import-tasks `
 uv run python -m llm_eval_harness generate `
     --config projects/llm-eval-harness/configs/smoke_runpod.toml `
     --env-file projects/qwen-qlora/.env --limit 10
+```
+
+M2 (grading + judging, CPU-first):
+
+```powershell
+# import P1's recorded outputs (no GPU, no network) into harness generations
+uv run python -m llm_eval_harness import-generations `
+    --input projects/qwen-qlora/reports/auto_eval/raw_outputs.jsonl `
+    --output projects/llm-eval-harness/reports/qwen-qlora-dogfood/generations.jsonl
+
+# deterministic graders over the generations (CPU-only, no backends)
+uv run python -m llm_eval_harness grade `
+    --config projects/llm-eval-harness/configs/dogfood_p1.toml
+
+# LLM-as-judge (resume-safe; --against prints Pearson/Spearman vs a
+# P1-style legacy judge_scores.jsonl for the port validation)
+uv run python -m llm_eval_harness judge `
+    --config projects/llm-eval-harness/configs/dogfood_p1.toml `
+    --env-file projects/qwen-qlora/.env `
+    --against projects/qwen-qlora/reports/auto_eval/judge_scores.jsonl
+
+# position-swapped pairwise smoke (25 paired base-vs-lora samples)
+uv run python -m llm_eval_harness pairwise `
+    --config projects/llm-eval-harness/configs/dogfood_p1.toml `
+    --condition-a lora --condition-b base `
+    --env-file projects/qwen-qlora/.env
 ```
 
 The smoke config (`configs/smoke_runpod.toml`) targets the free public
@@ -100,3 +134,30 @@ tasks = import_jsonl("projects/qwen-qlora/data/test.jsonl")
 
 The committed 10-row `seed_prompts.jsonl` is already importable, and
 `tests/test_legacy.py` exercises the importer against it.
+
+## Correspondence with P1
+
+P1's frozen eval scripts (see its README) map onto this harness as
+follows. Task ids are aligned by line order of `test.jsonl`: P1
+`sample_id N` (0-based) is harness task `p1_{N+1:04d}`, and P1's
+`"N:condition"` keys map through `legacy.p1_key_to_task_id`.
+
+| P1 (`qwen-qlora`) | P0 (this harness) | Notes |
+| --- | --- | --- |
+| `auto_grade.py` `exact_match` | `graders/exact_match.py` (`exact_match` grader) | verbatim port: `MATH_SUBJECTS`, fraction-preferred tail extraction (last 500 chars), exact fraction arithmetic; non-math rows carry `exact_match: null` |
+| `auto_grade.py` `format_metrics` | `graders/format.py` (`format` grader) | verbatim port: whitespace word count, `WORD_CAP = 350`, step-scaffolding regex `(?im)^\s*(step\s*\d+|\d+[.):])` |
+| `graded.jsonl` | `grades.jsonl` (from `grade`) | recomputed whole each run, like P1 |
+| `judge_run.py` batched judge (N=5, max_tokens 1024) | `graders/judge.py` `judge_pending` (from `judge`) | same endpoint/shape; `batch_size`/`max_tokens` from `[judge]` |
+| judge dimensions `correctness` / `format` / `completeness` | `[judge.dimensions]` table in `configs/dogfood_p1.toml` | P1's dimensions were plain questions without 1-5 anchors; the config holds the P0-contract rendering (one anchor line per dimension, quoted verbatim in the prompt); the rubric version is `custom` so it never mixes with the built-in five |
+| `judge_scores.jsonl` rows `{key, correctness, format, completeness}` | `judge_scores.jsonl` rows `{key: "p1_XXXX:cond", task_id, condition, model, judge_model, rubric_version, <dims>, parse, ts}` | P0 rows carry the parse method (`json`/`fence`/`span`/`regex`) so coverage is explicit; `judge --against <P1 file>` aligns the two key schemes and prints Pearson/Spearman per dimension |
+| pairwise (planned in P1, never run) | `pairwise` command + `graders/judge.py` `pairwise_compare` | position-swapped; a preference is recorded only when both directions agree |
+| judge retry policy (3 attempts, 5s x attempt, 408/429/5xx retry, other 4xx fail fast) | `backends/openai_compat.py` | shared by the judge via the normal backend interface; a 200 + error body fails the job instead of becoming a record |
+| judge self-bias risk (Qwen3-32B judging Qwen3.8-27B) | config guard + data-driven guard | identical model = load error; same family = loud warning (the dogfood config prints it) |
+
+M2 acceptance (live): judge the imported 230 lora + 25 base generations
+with parse coverage >= 97% (P1 baseline 96.1%); per-dimension
+correlation with P1's legacy `judge_scores.jsonl` >= 0.8; 25-pair
+pairwise smoke with swap. Note P1's legacy file holds 245 rows (220
+lora + 25 base): 10 lora rows were silently dropped by P1's parser -
+the 10/255 incident that motivates the explicit parse coverage here -
+so the correlation overlap is those 245 rows.

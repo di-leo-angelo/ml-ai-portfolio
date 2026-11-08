@@ -21,14 +21,21 @@ TOML and *writes* JSON/JSONL.
 from __future__ import annotations
 
 import os
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .rubric import RUBRIC_VERSION, Rubric, rubric_from_names
+from .rubric import (
+    CUSTOM_RUBRIC_VERSION,
+    RUBRIC_VERSION,
+    Rubric,
+    rubric_from_names,
+    rubric_from_specs,
+)
 
-VALID_KINDS: tuple[str, ...] = ("local", "api", "runpod")
+VALID_KINDS: tuple[str, ...] = ("local", "api", "runpod", "imported")
 VALID_DTYPES: tuple[str, ...] = ("bfloat16", "float16", "float32")
 
 
@@ -72,12 +79,29 @@ class RunPodBackend:
     model: str | None = None
 
 
-Backend = LocalBackend | ApiBackend | RunPodBackend
+@dataclass(frozen=True)
+class ImportedBackend:
+    """Provenance-only condition: outputs already recorded elsewhere (P1).
+
+    Never generates - ``import-generations`` fills ``generations.jsonl``
+    from P1's recorded outputs. The condition exists so the judge guard,
+    the manifest, and the reports know which model produced the
+    imported outputs (e.g. the M2 dogfood of P1's 230 lora + 25 base
+    generations, judged without re-running any GPU code).
+    """
+
+    kind: str = "imported"
+    model: str = ""
+    source: str = ""
+
+
+Backend = LocalBackend | ApiBackend | RunPodBackend | ImportedBackend
 
 _BACKEND_FIELDS: dict[str, frozenset[str]] = {
     "local": frozenset(LocalBackend.__dataclass_fields__),
     "api": frozenset(ApiBackend.__dataclass_fields__),
     "runpod": frozenset(RunPodBackend.__dataclass_fields__),
+    "imported": frozenset(ImportedBackend.__dataclass_fields__),
 }
 
 
@@ -115,6 +139,14 @@ def backend_from_dict(raw: dict[str, Any], where: str) -> Backend:
         if not backend.model:
             raise ConfigError(f"{where}: api backend needs a model")
         return backend
+    if kind == "imported":
+        backend = ImportedBackend(
+            model=str(raw.get("model", "")).strip(),
+            source=str(raw.get("source", "")).strip(),
+        )
+        if not backend.model:
+            raise ConfigError(f"{where}: imported backend needs a model")
+        return backend
     backend = RunPodBackend(
         endpoint_id=str(raw.get("endpoint_id", "")).strip(),
         api_key_env=str(raw.get("api_key_env", "RUNPOD_API_KEY")),
@@ -139,14 +171,24 @@ class Condition:
 
 @dataclass(frozen=True)
 class JudgeConfig:
-    """The judge: a backend plus the rubric dimensions it scores."""
+    """The judge: a backend plus the rubric dimensions it scores.
+
+    ``dimensions`` accepts either a list of built-in dimension names or
+    a table of custom ``name -> 1..5 anchor line`` entries (``M2``); the
+    table form is how a dogfood run reproduces a legacy rubric exactly
+    (e.g. P1's frozen three: correctness/format/completeness).
+    """
 
     backend: Backend
     dimension_names: tuple[str, ...]
     temperature: float = 0.0
     max_tokens: int = 512
+    dimension_specs: dict[str, str] | None = None
+    batch_size: int = 5
 
     def rubric(self) -> Rubric:
+        if self.dimension_specs is not None:
+            return rubric_from_specs(self.dimension_specs)
         return rubric_from_names(self.dimension_names)
 
 
@@ -173,6 +215,7 @@ class RunConfig:
     max_tokens: int
     output_dir: str = "reports"
     gate: GateConfig | None = None
+    judge_warnings: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         names = [condition.name for condition in self.conditions]
@@ -199,23 +242,56 @@ def _judge_from_dict(raw: dict[str, Any]) -> JudgeConfig:
     if not isinstance(backend_raw, dict):
         raise ConfigError("[judge]: missing backend table")
     backend = backend_from_dict(backend_raw, "[judge]")
-    names_raw = raw.get("dimensions")
-    if not isinstance(names_raw, (list, tuple)) or not names_raw:
-        raise ConfigError("[judge]: dimensions must be a non-empty list")
-    names = tuple(str(name) for name in names_raw)
-    # Fail fast: an unknown dimension is a config error, not a mid-run
-    # surprise (rubric validation happens here, not at judge time).
-    try:
-        rubric_from_names(names)
-    except ValueError as exc:
-        raise ConfigError(f"[judge]: {exc}") from exc
+    dimensions_raw = raw.get("dimensions")
+    # Two shapes (fail fast either way: an invalid rubric is a config
+    # error, not a mid-run surprise). A list selects built-in dimension
+    # names; a table supplies custom dimensions, each value a 1..5
+    # anchor line quoted verbatim in the judge prompt.
+    if isinstance(dimensions_raw, dict):
+        if not dimensions_raw:
+            raise ConfigError("[judge]: dimensions table must not be empty")
+        dimension_specs: dict[str, str] = {}
+        for key, value in dimensions_raw.items():
+            name = str(key).strip()
+            line = str(value).strip()
+            if not name or not line:
+                raise ConfigError(
+                    "[judge]: dimensions need non-empty names and anchor lines"
+                )
+            dimension_specs[name] = line
+        names = tuple(dimension_specs)
+        try:
+            rubric_from_specs(dimension_specs)
+        except ValueError as exc:
+            raise ConfigError(f"[judge]: {exc}") from exc
+    elif isinstance(dimensions_raw, (list, tuple)) and dimensions_raw:
+        names = tuple(str(name) for name in dimensions_raw)
+        try:
+            rubric_from_names(names)
+        except ValueError as exc:
+            raise ConfigError(f"[judge]: {exc}") from exc
+        dimension_specs = None
+    else:
+        raise ConfigError(
+            "[judge]: dimensions must be a non-empty list of names or a "
+            "table of name -> 1..5 anchor line"
+        )
     temperature = float(raw.get("temperature", 0.0))
     max_tokens = int(raw.get("max_tokens", 512))
     if not 0.0 <= temperature <= 2.0:
         raise ConfigError("[judge]: temperature must be in [0, 2]")
     if max_tokens < 1:
         raise ConfigError("[judge]: max_tokens must be >= 1")
-    unknown = set(raw) - {"backend", "dimensions", "temperature", "max_tokens"}
+    batch_size = int(raw.get("batch_size", 5))
+    if batch_size < 1:
+        raise ConfigError("[judge]: batch_size must be >= 1")
+    unknown = set(raw) - {
+        "backend",
+        "dimensions",
+        "temperature",
+        "max_tokens",
+        "batch_size",
+    }
     if unknown:
         raise ConfigError(f"[judge]: unknown field(s) {sorted(unknown)}")
     return JudgeConfig(
@@ -223,7 +299,96 @@ def _judge_from_dict(raw: dict[str, Any]) -> JudgeConfig:
         dimension_names=names,
         temperature=temperature,
         max_tokens=max_tokens,
+        dimension_specs=dimension_specs,
+        batch_size=batch_size,
     )
+
+
+# --- judge != testee guard ------------------------------------------------
+
+
+def _normalize_model(model: str) -> str:
+    return re.sub(r"\s+", "", model).lower()
+
+
+def model_family(model: str) -> str:
+    """Coarse model-family key for the judge!=testee guard.
+
+    The org prefix before ``/`` when present (``Qwen/Qwen3-32B-AWQ`` ->
+    ``qwen``), else the leading alphabetic run (``Qwen3.8-27B`` ->
+    ``qwen3``), lowercased. Deliberately coarse: it only decides whether
+    to WARN about self-family bias, never whether a run passes.
+    """
+    if "/" in model:
+        org = model.split("/", 1)[0]
+        if org:
+            return org.lower()
+    match = re.match(r"[a-z]+", model.lower())
+    return match.group(0) if match else model.lower()
+
+
+def same_model_family(model_a: str, model_b: str) -> bool:
+    """True when two model names look like the same model family."""
+    family_a, family_b = model_family(model_a), model_family(model_b)
+    if len(family_a) < 3 or len(family_b) < 3:
+        return False
+    return family_a == family_b or family_a.startswith(family_b) or family_b.startswith(
+        family_a
+    )
+
+
+def judge_model_string(backend: Backend) -> str | None:
+    """The model a backend produces outputs with (None when unknown).
+
+    Mirrors ``build_backend``: a ``runpod`` backend without an explicit
+    model sends the endpoint id as the model name.
+    """
+    if isinstance(backend, LocalBackend):
+        if not backend.model_id:
+            return None
+        return (
+            f"{backend.model_id}+LoRA" if backend.adapter_path else backend.model_id
+        )
+    if isinstance(backend, RunPodBackend):
+        return backend.model or backend.endpoint_id or None
+    if isinstance(backend, (ApiBackend, ImportedBackend)):
+        return backend.model or None
+    return None
+
+
+def judge_model_guard(
+    conditions: tuple[Condition, ...], judge: JudgeConfig
+) -> tuple[str | None, list[str]]:
+    """Judge != testee guard (PLAN.md section 2): a judge must not grade
+    its own outputs.
+
+    Returns ``(error, warnings)``: ``error`` (when a condition's model is
+    identical to the judge's) is raised as ConfigError by the loader;
+    ``warnings`` flag same-family pairs (a Qwen judge on Qwen outputs)
+    for the CLI to print loudly.
+    """
+    judge_model = judge_model_string(judge.backend)
+    warnings: list[str] = []
+    if not judge_model:
+        return None, warnings
+    for condition in conditions:
+        testee = judge_model_string(condition.backend)
+        if not testee:
+            continue
+        if _normalize_model(testee) == _normalize_model(judge_model):
+            return (
+                f"[judge]: judge model {judge_model!r} is identical to "
+                f"condition {condition.name!r} - a judge must not grade "
+                "its own outputs"
+            ), warnings
+        if same_model_family(testee, judge_model):
+            warnings.append(
+                f"[judge] WARNING: judge model {judge_model!r} is in the "
+                f"same family as condition {condition.name!r} "
+                f"({testee!r}); self-family bias is a known judge risk - "
+                "interpret those scores accordingly"
+            )
+    return None, warnings
 
 
 def _gate_from_dict(raw: dict[str, Any]) -> GateConfig:
@@ -300,16 +465,24 @@ def load_run_config(path: str | Path) -> RunConfig:
         raise ConfigError("max_tokens must be >= 1")
 
     gate = _gate_from_dict(raw["gate"]) if isinstance(raw.get("gate"), dict) else None
+    error, warnings = judge_model_guard(conditions, judge)
+    if error:
+        raise ConfigError(error)
     return RunConfig(
         name=name,
         data=data,
         conditions=conditions,
         judge=judge,
-        rubric_version=RUBRIC_VERSION,
+        rubric_version=(
+            CUSTOM_RUBRIC_VERSION
+            if judge.dimension_specs is not None
+            else RUBRIC_VERSION
+        ),
         temperature=temperature,
         max_tokens=max_tokens,
         output_dir=str(raw.get("output_dir", "reports")),
         gate=gate,
+        judge_warnings=tuple(warnings),
     )
 
 

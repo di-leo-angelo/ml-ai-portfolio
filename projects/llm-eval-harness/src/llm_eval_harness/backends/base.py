@@ -113,8 +113,30 @@ class GenerationStore:
 
     def append(self, record: GenerationRecord) -> None:
         """Append one record and flush it to disk immediately."""
+        self._drop_torn_tail()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record.to_dict(), ensure_ascii=False) + "\n")
             handle.flush()
             os.fsync(handle.fileno())
+
+    def _drop_torn_tail(self) -> None:
+        """Self-heal a torn final line before appending.
+
+        A crash mid-write leaves an invalid final line; dropping it here
+        (not just at read time) keeps the file well-formed for every
+        later reader - otherwise the torn line becomes a *middle* line
+        on the next resume and the loud malformed-line check trips.
+        """
+        if not self.path.is_file():
+            return
+        lines = self.path.read_text(encoding="utf-8").splitlines()
+        if not lines:
+            return
+        try:
+            json.loads(lines[-1])
+        except json.JSONDecodeError:
+            keep = lines[:-1]
+            self.path.write_text(
+                "".join(line + "\n" for line in keep), encoding="utf-8"
+            )

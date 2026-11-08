@@ -8,6 +8,7 @@ import pytest
 from llm_eval_harness.config import (
     ApiBackend,
     ConfigError,
+    ImportedBackend,
     LocalBackend,
     RunPodBackend,
     load_run_config,
@@ -153,3 +154,117 @@ def test_example_config_loads() -> None:
     assert [c.name for c in config.conditions] == ["base", "lora"]
     assert len(config.judge.dimension_names) == 5
     assert config.gate is None
+
+
+# --- M2: custom dimensions, batch_size, imported kind, judge guard ------------
+
+
+def test_custom_dimensions_table(tmp_path: Path) -> None:
+    # Note: TOML forbids re-declaring a key as a table header, so the
+    # ``dimensions`` key is replaced by the [judge.dimensions] table.
+    body = (
+        _VALID_TOML.replace(
+            'dimensions = ["correctness", "tone"]', "batch_size = 3"
+        ).replace(
+            "[judge.backend]",
+            "[judge.dimensions]\n"
+            'correctness = "1 = wrong ... 5 = right"\n'
+            'format = "1 = rambling ... 5 = crisp"\n'
+            "\n"
+            "[judge.backend]",
+        )
+    )
+    config = load_run_config(_write(tmp_path, body))
+    assert config.rubric_version == "custom"
+    assert config.judge.dimension_names == ("correctness", "format")
+    assert config.judge.batch_size == 3
+    assert config.judge.dimension_specs is not None
+    rubric = config.judge.rubric()
+    assert rubric.version == "custom"
+    assert rubric.names() == ("correctness", "format")
+    assert rubric.dimensions[0].anchor(1) == "1 = wrong ... 5 = right"
+
+
+def test_custom_dimensions_empty_value_raises(tmp_path: Path) -> None:
+    body = _VALID_TOML.replace(
+        'dimensions = ["correctness", "tone"]',
+        "batch_size = 3",
+    ).replace(
+        "[judge.backend]",
+        '[judge.dimensions]\ncorrectness = ""\n\n[judge.backend]',
+    )
+    with pytest.raises(ConfigError, match="anchor lines"):
+        load_run_config(_write(tmp_path, body))
+
+
+def test_judge_batch_size_zero_raises(tmp_path: Path) -> None:
+    body = _VALID_TOML.replace(
+        'dimensions = ["correctness", "tone"]',
+        'dimensions = ["correctness", "tone"]\nbatch_size = 0',
+    )
+    with pytest.raises(ConfigError, match="batch_size"):
+        load_run_config(_write(tmp_path, body))
+
+
+def test_imported_backend_kind(tmp_path: Path) -> None:
+    body = _VALID_TOML.replace(
+        'kind = "api"\nmodel = "gpt-4o-mini"\napi_key_env = "OPENAI_API_KEY"',
+        'kind = "imported"\nmodel = "Qwen3.8-27B+LoRA"',
+    )
+    config = load_run_config(_write(tmp_path, body))
+    backend = config.conditions[0].backend
+    assert isinstance(backend, ImportedBackend)
+    assert backend.model == "Qwen3.8-27B+LoRA"
+
+
+def test_imported_without_model_raises(tmp_path: Path) -> None:
+    body = _VALID_TOML.replace(
+        'kind = "api"\nmodel = "gpt-4o-mini"\napi_key_env = "OPENAI_API_KEY"',
+        'kind = "imported"',
+    )
+    with pytest.raises(ConfigError, match="imported backend needs a model"):
+        load_run_config(_write(tmp_path, body))
+
+
+def test_judge_identical_to_condition_raises(tmp_path: Path) -> None:
+    body = _VALID_TOML.replace(
+        '[judge.backend]\nkind = "runpod"\nendpoint_id = "ep-test"',
+        '[judge.backend]\nkind = "api"\nmodel = "gpt-4o-mini"'
+        '\napi_key_env = "OPENAI_API_KEY"',
+    )
+    with pytest.raises(ConfigError, match="identical"):
+        load_run_config(_write(tmp_path, body))
+
+
+def test_judge_same_family_warns(tmp_path: Path) -> None:
+    body = (
+        _VALID_TOML.replace(
+            'kind = "api"\nmodel = "gpt-4o-mini"\napi_key_env = "OPENAI_API_KEY"',
+            'kind = "api"\nmodel = "Qwen3.8-27B"\napi_key_env = "OPENAI_API_KEY"',
+        )
+        .replace(
+            '[judge.backend]\nkind = "runpod"\nendpoint_id = "ep-test"',
+            '[judge.backend]\nkind = "api"\nmodel = "Qwen/Qwen3-32B-AWQ"'
+            '\napi_key_env = "OPENAI_API_KEY"',
+        )
+    )
+    config = load_run_config(_write(tmp_path, body))
+    assert any("same family" in w for w in config.judge_warnings)
+
+
+def test_judge_different_family_no_warning(tmp_path: Path) -> None:
+    # condition gpt-4o-mini vs runpod judge ep-test: different families
+    config = load_run_config(_write(tmp_path, _VALID_TOML))
+    assert config.judge_warnings == ()
+
+
+def test_dogfood_config_loads() -> None:
+    config = load_run_config(CONFIG_DIR / "dogfood_p1.toml")
+    assert config.name == "qwen-qlora-dogfood-judge"
+    assert config.rubric_version == "custom"
+    assert config.judge.dimension_names == ("correctness", "format", "completeness")
+    assert config.judge.batch_size == 5
+    assert [c.name for c in config.conditions] == ["lora", "base"]
+    assert all(isinstance(c.backend, ImportedBackend) for c in config.conditions)
+    # a Qwen judge on Qwen testee outputs must warn (self-family risk)
+    assert config.judge_warnings

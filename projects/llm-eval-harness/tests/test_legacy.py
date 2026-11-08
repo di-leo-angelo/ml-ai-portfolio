@@ -6,7 +6,13 @@ import json
 from pathlib import Path
 
 import pytest
-from llm_eval_harness.legacy import SOURCE_TAG, import_jsonl, import_record
+from llm_eval_harness.legacy import (
+    SOURCE_TAG,
+    import_generations,
+    import_jsonl,
+    import_record,
+    p1_key_to_task_id,
+)
 
 P1_SEEDS = (
     Path(__file__).resolve().parents[1]
@@ -84,3 +90,83 @@ def test_import_real_seed_file() -> None:
     assert all(t.source == f"{SOURCE_TAG}:seed" for t in tasks)
     subjects = {t.subject for t in tasks}
     assert len(subjects) == 10
+
+
+# --- P1 recorded generations (M2) ----------------------------------------------
+
+
+def test_p1_key_to_task_id() -> None:
+    assert p1_key_to_task_id("0:lora") == ("p1_0001", "lora")
+    assert p1_key_to_task_id("10:base") == ("p1_0011", "base")
+    with pytest.raises(ValueError, match="unrecognised"):
+        p1_key_to_task_id("x:lora")
+    with pytest.raises(ValueError, match="unrecognised"):
+        p1_key_to_task_id("3")
+
+
+def test_import_generations(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        [
+            {
+                "key": "0:lora",
+                "sample_id": 0,
+                "subject": "m",
+                "difficulty": "b",
+                "condition": "lora",
+                "wall_s": 17.0,
+                "output": "A",
+            },
+            {
+                "key": "1:base",
+                "sample_id": 1,
+                "subject": "m",
+                "difficulty": "b",
+                "condition": "base",
+                "output": "B",
+            },
+        ],
+    )
+    records = import_generations(path)
+    assert [r["task_id"] for r in records] == ["p1_0001", "p1_0002"]
+    assert [r["condition"] for r in records] == ["lora", "base"]
+    assert records[0]["model"] == "Qwen3.8-27B+LoRA"
+    assert records[1]["model"] == "Qwen3.8-27B"
+    assert records[0]["backend"] == "imported"
+    assert records[0]["source"] == f"{SOURCE_TAG}:raw_outputs"
+    assert records[0]["seed"] == 0
+    assert records[0]["wall_s"] == 17.0
+    assert "wall_s" not in records[1]
+    assert records[0]["output"] == "A"
+
+
+def test_import_generations_key_sample_mismatch_raises(tmp_path: Path) -> None:
+    rows = [
+        {
+            "key": "2:lora",
+            "sample_id": 0,
+            "condition": "lora",
+            "output": "A",
+        }
+    ]
+    with pytest.raises(ValueError, match="disagrees"):
+        import_generations(_write(tmp_path, rows))
+
+
+def test_import_generations_unknown_condition_raises(tmp_path: Path) -> None:
+    rows = [
+        {
+            "key": "0:chatgpt",
+            "sample_id": 0,
+            "condition": "chatgpt",
+            "output": "A",
+        }
+    ]
+    with pytest.raises(ValueError, match="unknown P1 condition"):
+        import_generations(_write(tmp_path, rows))
+
+
+def test_import_generations_missing_field_raises(tmp_path: Path) -> None:
+    rows = [{"key": "0:lora", "sample_id": 0, "condition": "lora"}]
+    with pytest.raises(ValueError, match="missing"):
+        import_generations(_write(tmp_path, rows))

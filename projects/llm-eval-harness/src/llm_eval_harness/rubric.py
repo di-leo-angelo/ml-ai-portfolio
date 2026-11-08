@@ -8,9 +8,15 @@ gate comparisons are only meaningful while ``RUBRIC_VERSION`` is unchanged.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 RUBRIC_VERSION = "1"
+
+#: Version tag for rubrics built from config-supplied dimensions (see
+#: ``rubric_from_specs``) - deliberately distinct so gate comparisons
+#: never mix the built-in contract with a custom rubric.
+CUSTOM_RUBRIC_VERSION = "custom"
 
 DIMENSIONS: tuple[str, ...] = (
     "correctness",
@@ -121,3 +127,57 @@ def rubric_from_names(names: tuple[str, ...] | list[str]) -> Rubric:
             for name in names
         )
     )
+
+
+def rubric_from_specs(specs: Mapping[str, str]) -> Rubric:
+    """A rubric built from config-supplied dimensions (M2).
+
+    Each dimension maps to one anchor line describing the 1..5 scale,
+    e.g. ``"1 = wrong final answer ... 5 = fully correct"``; the line is
+    quoted verbatim in the judge prompt, exactly like built-in anchors.
+    Custom specs let a run judge on a different dimension set (e.g. P1's
+    frozen three - correctness/format/completeness) without touching the
+    built-in contract; such a run reports
+    ``version == CUSTOM_RUBRIC_VERSION`` so gate comparisons never mix
+    the two.
+    """
+    if not specs:
+        raise ValueError("judge dimensions table is empty")
+    dimensions = []
+    for name, anchor_line in specs.items():
+        name = str(name).strip()
+        line = str(anchor_line).strip()
+        if not name:
+            raise ValueError("judge dimension name must be non-empty")
+        if not line:
+            raise ValueError(
+                f"judge dimension {name!r} needs a non-empty anchor line"
+            )
+        dimensions.append(
+            RubricDimension(
+                name=name,
+                description=f"Score {name} (1-5) against the supplied anchor.",
+                anchors={1: line},
+            )
+        )
+    return Rubric(dimensions=tuple(dimensions), version=CUSTOM_RUBRIC_VERSION)
+
+
+def prompt_anchor_line(dimension: RubricDimension) -> str:
+    """The rubric text quoted verbatim in the judge prompt for a dimension.
+
+    Built-in dimensions quote their low (1) and high (5) anchors (P0
+    keeps prompts cheap - one line per dimension, PLAN.md section 3.2);
+    custom dimensions carry a single anchor line, quoted as-is.
+    """
+    if len(dimension.anchors) == 1:
+        return next(iter(dimension.anchors.values()))
+    return f"1 = {dimension.anchor(1)} | 5 = {dimension.anchor(5)}"
+
+
+def rubric_prompt_lines(rubric: Rubric) -> list[str]:
+    """One judge-prompt line per dimension, anchors quoted verbatim."""
+    return [
+        f"{dimension.name} (1-5): {prompt_anchor_line(dimension)}"
+        for dimension in rubric.dimensions
+    ]

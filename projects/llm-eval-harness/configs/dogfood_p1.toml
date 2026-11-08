@@ -1,0 +1,46 @@
+# M2 acceptance dogfood: judge P1's already-recorded test-set outputs
+# (230 lora + 25 base, imported with `import-generations`) with the same
+# Qwen3-32B-AWQ endpoint P1 used, on P1's exact three rubric dimensions.
+#
+# The conditions below are provenance-only (kind = "imported"): they
+# declare which model produced the imported outputs so the judge guard
+# and the manifest are honest. Do NOT run `generate` with this config.
+#
+# P1's judge had no 1-5 anchors (plain dimension questions in
+# scripts/judge_run.py); the anchor lines below are the P0-contract
+# rendering of P1's three rubric lines. P1's judge used batches of 5
+# with max_tokens 1024 - mirrored here (batch_size / max_tokens).
+
+name = "qwen-qlora-dogfood-judge"
+data = "projects/qwen-qlora/data/test.jsonl"
+output_dir = "projects/llm-eval-harness/reports/qwen-qlora-dogfood"
+
+[conditions.lora]
+seed = 0
+
+[conditions.lora.backend]
+kind = "imported"
+model = "Qwen3.8-27B+LoRA"
+
+[conditions.base]
+seed = 0
+
+[conditions.base.backend]
+kind = "imported"
+model = "Qwen3.8-27B"
+
+[judge]
+batch_size = 5
+temperature = 0.0
+max_tokens = 1024
+
+[judge.dimensions]
+correctness = "1 = wrong final answer or broken reasoning ... 5 = fully correct (a different but valid method is fine)"
+format = "1 = no step-by-step structure, rambling or off-format ... 5 = clear, concise step-by-step tutor format"
+completeness = "1 = does not address the question or omits the final answer ... 5 = fully addresses the question, states the final answer, self-checks where appropriate"
+
+[judge.backend]
+kind = "api"
+base_url = "https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1"
+model = "Qwen/Qwen3-32B-AWQ"
+api_key_env = "RUNPOD_API_KEY"
