@@ -110,10 +110,8 @@ decoding settings).
 
 ## Importing the P1 test split
 
-P1's 230-row `test.jsonl` is gitignored - it was generated locally in
-`projects/qwen-qlora/data/` (manifest + hashes in `data/split.json`) and
-pushed to the GPU pod via `scp` for the training/eval runs. Once it is
-present locally, import it as harness tasks:
+P1's 230-row `test.jsonl` (and the `data/split.json` manifest) is
+committed as reference data, so this works on a fresh clone:
 
 ```python
 from llm_eval_harness.legacy import import_jsonl
@@ -122,8 +120,10 @@ tasks = import_jsonl("projects/qwen-qlora/data/test.jsonl")
 # -> 230 Task objects with stable p1_XXXX ids and a source marker
 ```
 
-The committed 10-row `seed_prompts.jsonl` is already importable, and
-`tests/test_legacy.py` exercises the importer against it.
+The train/dev splits (1,270 rows) remain gitignored - regenerate them with
+the P1 data pipeline (see its README). The committed 10-row
+`seed_prompts.jsonl` is already importable, and `tests/test_legacy.py`
+exercises the importer against it.
 
 ## Correspondence with P1
 

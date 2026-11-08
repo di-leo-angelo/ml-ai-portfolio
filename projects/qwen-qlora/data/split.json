@@ -1,0 +1,32 @@
+{
+  "seed": 42,
+  "split_ratio": [
+    0.75,
+    0.1,
+    0.15
+  ],
+  "sizes": {
+    "train": 1120,
+    "dev": 150,
+    "test": 230
+  },
+  "samples_by_subject": {
+    "algebra": 150,
+    "biology": 150,
+    "calculus": 150,
+    "chemistry": 150,
+    "computer_science": 150,
+    "english_literature": 150,
+    "history": 150,
+    "physics": 150,
+    "probability": 150,
+    "world_geography": 150
+  },
+  "generator_model": "qwen-3.8-27b-nvfp4",
+  "hashes": {
+    "raw": "e7d98ceddb28daab915133fb71383614577332b4faf584017a05881ce0dc6df7",
+    "train": "2783fff0bb2952985c4a40960c067d60922908e9e34e5ba5702b0cfcb3923e9c",
+    "dev": "d893642f98cf679870de6374dd1899c6e01a3b1a6e8ffa33f32e5bb9a5f40280",
+    "test": "52b6cd95d48c384d6a2d2fffeea9c1e9d97cb4dfc37576c7e9b7f21b7f33653d"
+  }
+}

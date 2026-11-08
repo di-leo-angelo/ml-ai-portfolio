@@ -2,6 +2,10 @@
 /data/*
 !/data/README.md
 !/data/samples/
+# Test split + manifest committed on purpose: reference data for the
+# llm-eval-harness port validation (see both projects' READMEs).
+!/data/test.jsonl
+!/data/split.json
 
 # Generated project outputs
 /artifacts/

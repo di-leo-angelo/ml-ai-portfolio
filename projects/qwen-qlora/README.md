@@ -24,6 +24,9 @@ arithmetic errors, the QLoRA training run completed on a rented 48 GB 4090
 (72 min, 499 MB adapter), and the 255-generation test-set eval with
 base-vs-LoRA comparison completed on a 24 GB 4090. All numbers in
 *Results* and `reports/` are measured from the actual run, not estimates.
+The test split (`data/test.jsonl`) and the `data/split.json` manifest are
+committed as reference data for the llm-eval-harness port validation; the
+train/dev splits stay gitignored (regenerate per *Reproduce*).
 
 ## Why this project
 
