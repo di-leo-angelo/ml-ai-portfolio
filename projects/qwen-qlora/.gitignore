@@ -6,7 +6,15 @@
 # Generated project outputs
 /artifacts/
 /models/
-/reports/
+/reports/*
+# Recorded eval outputs committed on purpose: they are the reference data
+# for the llm-eval-harness port validation (see both projects' READMEs).
+# (The directory itself must be re-included first: git won't re-include
+# files inside a directory that a higher-up rule excludes.)
+!reports/auto_eval/
+!reports/auto_eval/raw_outputs.jsonl
+!reports/auto_eval/graded.jsonl
+!reports/auto_eval/judge_scores.jsonl
 
 # Local secrets and misc
 .env

@@ -11,7 +11,8 @@ problem framing, data preparation, modeling, evaluation, and conclusions.
 | [Telco Customer Churn](projects/telco-churn/) | Tabular classification | Nested OOF thresholding, SHAP explanations, business scenario analysis | Implemented |
 | [CIFAR-10 CNN](projects/cifar10-cnn/) | Image classification | 89.0% test accuracy, LR scheduling + early stopping, CPU-only training | Implemented |
 | [BERT Sentiment (SST-2)](projects/bert-sentiment/) | NLP / fine-tuning | BERT-base 92.4% vs DistilBERT 90.1% dev accuracy, published to the Hugging Face Hub | Implemented |
-| [Qwen3 QLoRA Tutor](projects/qwen-qlora/) | LLM fine-tuning (QLoRA) | Proof of concept: Qwen3.8-27B 4-bit NF4 + LoRA on a rented 4090/5090, tone-focused synthetic Q&A dataset | Data validated (training pending) |
+| [Qwen3 QLoRA Tutor](projects/qwen-qlora/) | LLM fine-tuning (QLoRA) | Qwen3.8-27B 4-bit NF4 + LoRA on a rented 4090/5090, tone-focused synthetic Q&A dataset; LoRA adapter published to the HF Hub | Complete (trained, evaluated, results published) |
+| [LLM Eval Harness](projects/llm-eval-harness/) | LLM evaluation framework | Open-source, dep-light eval harness: multi-backend generation, deterministic graders + LLM-as-judge, resume-safe stores, statistics, CI gate | In progress (M2/6: graders + judge port-validated against the QLoRA project) |
 
 ## Repository structure
 
@@ -21,6 +22,7 @@ problem framing, data preparation, modeling, evaluation, and conclusions.
 ├── projects/               # Self-contained portfolio projects
 │   ├── bert-sentiment/     # Data, source, reports, and project-local tests
 │   ├── cifar10-cnn/        # Data, source, reports, and project-local tests
+│   ├── llm-eval-harness/   # Eval framework: config, backends, graders, judge
 │   ├── qwen-qlora/         # Data, source, reports, and project-local tests
 │   └── telco-churn/        # Data, source, reports, and project-local tests
 ├── src/ml_ai_portfolio/    # Shared package code
@@ -126,6 +128,30 @@ python src/qwen_qlora/train.py --model-name models
 
 See the [project README](projects/qwen-qlora/README.md) for the rental
 workflow, hardware sizing, and the data-generation recipe.
+
+## Run the llm-eval-harness project
+
+Open-source, dependency-light eval framework - the backbone of the
+portfolio chain, and the framework the QLoRA project's results above were
+validated with: task specs (JSONL), multi-backend inference, deterministic
+graders, and an LLM-as-judge with structured rubric scoring. Development
+is milestone-based (see the project's PLAN.md). The dogfood config reuses
+the QLoRA project's recorded eval outputs, so the core validation runs
+CPU-only, with no GPU and no network:
+
+```bash
+# CPU-only: import the recorded QLoRA outputs and grade them
+uv run python -m llm_eval_harness import-generations \
+    --input projects/qwen-qlora/reports/auto_eval/raw_outputs.jsonl \
+    --output projects/llm-eval-harness/reports/qwen-qlora-dogfood/generations.jsonl
+uv run python -m llm_eval_harness grade \
+    --config projects/llm-eval-harness/configs/dogfood_p1.toml
+```
+
+Live judging additionally needs `RUNPOD_API_KEY` in
+`projects/qwen-qlora/.env`. See the [project README](projects/llm-eval-harness/README.md)
+for the design notes, the QLoRA correspondence table, and the full
+command reference.
 
 ## Tests and quality checks
 

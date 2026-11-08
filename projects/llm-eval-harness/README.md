@@ -6,26 +6,16 @@ OpenAI-compatible API / RunPod), LLM-as-judge with structured rubric
 scoring, calibration against human labels, bootstrap/McNemar statistics,
 and a CI regression gate.
 
-**Status: M2 - graders + judge (code complete; live judging pending)** -
-M0/M1 above, plus the deterministic graders (P1's `auto_grade.py` ported
-verbatim: exact-match for math subjects, word budget, step scaffolding),
-the LLM-as-judge (P1's `judge_run.py` ported and generalized: rubric
-anchors quoted verbatim, batched judging, parse ladder with per-row
-`parse` tags, resume-safe `judge_scores.jsonl`, position-swapped
-pairwise), config-extensible judge dimensions (the built-in five, or a
-custom spec - `configs/dogfood_p1.toml` replicates P1's frozen three
-dimensions exactly), a judge!=testee config guard (identical model is a
-load error, same-family is a loud warning), `import-generations` (P1's
-`raw_outputs.jsonl` -> harness generations), and Pearson/Spearman
-agreement stats for the port validation. 102 tests green (CPU-only);
-the port is validated against P1's recorded outputs: graders reproduce
-`graded.jsonl` field-for-field on all 230 LoRA rows (0/7-field
-mismatches). Remaining M2 acceptance items are live: judge the imported
-255 generations (parse coverage >= 97%), correlate with P1's legacy
-`judge_scores.jsonl` (>= 0.8/dimension), and the 25-pair pairwise smoke
-(runbook below). Judging/grading (M2), statistics (M3), calibration
-(M4), and the CI gate (M5) land in the order set out in
-[PLAN.md](PLAN.md).
+**Status: M2 - graders + judge, code complete (live judging pending).**
+M0-M2 shipped: run config + task specs; `local` HF / `api` / `runpod`
+backends with resume-safe generation; the deterministic graders and the
+LLM-as-judge ported from P1's frozen eval scripts (config-extensible
+rubric, explicit parse coverage, position-swapped pairwise); P1 output
+import; and Pearson/Spearman agreement stats. 102 tests green, and the
+graders reproduce P1's `graded.jsonl` field-for-field on all 230 LoRA
+rows (0/7-field mismatches). Milestone history, design deviations, and
+the live acceptance runbook (judge coverage, correlation vs P1's legacy
+scores, pairwise smoke) are in [PLAN.md](PLAN.md) section 10.
 
 ## Design notes
 

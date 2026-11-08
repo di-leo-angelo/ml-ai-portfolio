@@ -110,13 +110,18 @@ Practical workflow:
 | Evaluation | eval loss per epoch on the 150-sample dev split + a side-by-side generation report on the 230-sample test split |
 
 The trained artifact is the LoRA adapter only (a few hundred MB); the base
-model is never modified.
+model is never modified. It is published at
+<https://huggingface.co/di-leo-angelo/qwen3.8-27b-qlora-tutor> (499 MB
+adapter + tokenizer), so it can be downloaded instead of retrained.
 
 ## Results
 
 Measured from the 2026-10-28/29 run (training: 48 GB 4090; inference eval:
 24 GB 4090). Full reports: `reports/auto_eval/summary.md`,
-`reports/base_vs_lora/comparisons.md`, `reports/eval_report.txt`.
+`reports/base_vs_lora/comparisons.md`, `reports/eval_report.txt`; the
+recorded eval data (`reports/auto_eval/{raw_outputs,graded,judge_scores}.jsonl`)
+is committed as the reference data for the llm-eval-harness port
+validation.
 
 | Stage | Measured |
 | --- | --- |
@@ -165,6 +170,9 @@ pip install -r projects/qwen-qlora/requirements-gpu.txt
 python projects/qwen-qlora/scripts/download_model.py
 cd projects/qwen-qlora
 python src/qwen_qlora/train.py --model-name models
+#   (already trained? download the published adapter from
+#    https://huggingface.co/di-leo-angelo/qwen3.8-27b-qlora-tutor
+#    into artifacts/ instead of retraining)
 
 # Test-set eval (GPU, resume-safe), then grading (CPU)
 python scripts/eval_run.py            # 255 generations: 230 lora + 25 base
