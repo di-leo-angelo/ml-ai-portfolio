@@ -101,6 +101,14 @@ def test_prompt_quotes_anchors_verbatim() -> None:
     # a None reference is omitted, not printed as "None"
     assert "Reference answer: None" not in prompt
     assert '"key": "<key>", "correctness": <int>, "format": <int>' in prompt
+    # P1's closing reminder + key-fidelity instruction (the live judge
+    # has been seen to echo mangled keys; the parser keeps rejecting
+    # them, so the prompt must state the echo contract explicitly)
+    assert (
+        "Score every sample. Remember: respond with ONLY the JSON array, "
+        'with each "key" copied verbatim from its "### Sample" heading '
+        '(including the ":condition" part).'
+    ) in prompt
 
 
 def test_prompt_built_in_anchors() -> None:

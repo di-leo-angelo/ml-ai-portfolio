@@ -49,6 +49,13 @@ def build_judge_prompt(rubric: Rubric, batch: list[dict[str, Any]]) -> str:
     ``batch`` items: ``{"key", "question", "answer", "reference",
     "subject"}`` - ``reference`` may be None (the line is then omitted),
     ``subject`` is optional. Anchors are quoted verbatim from the rubric.
+
+    The prompt ends with P1's closing reminder, extended with an
+    explicit key-fidelity instruction: the live Qwen3 judge has been
+    observed to echo mangled keys (e.g. ``"p1_0006"`` for
+    ``"p1_0006:lora"``) into the reply; the key-matched parser keeps
+    rejecting those (gotcha 1 - the ladder is not loosened), so the
+    prompt makes the echo contract explicit instead.
     """
     fields = ", ".join(f'"{name}": <int>' for name in rubric.names())
     parts: list[str] = [
@@ -69,6 +76,11 @@ def build_judge_prompt(rubric: Rubric, batch: list[dict[str, Any]]) -> str:
                 f"Reference answer: {str(sample['reference'])[:REFERENCE_TRUNCATE]}"
             )
         parts.append("")
+    parts.append(
+        "Score every sample. Remember: respond with ONLY the JSON array, "
+        'with each "key" copied verbatim from its "### Sample" heading '
+        '(including the ":condition" part).'
+    )
     return "\n".join(parts)
 
 
