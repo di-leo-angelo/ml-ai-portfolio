@@ -562,6 +562,35 @@ completeness 4.735 [4.657, 4.804]; base n = 25 - 4.840 [4.640, 5.000],
 on this (ceiling-saturated) judge. These numbers seed M6's report
 (headline numbers carry CI + n per section 6).
 
+**Status (2026-11-24, M4):** calibration pipeline complete and
+tested; the report run awaits the human labels (section 3.4). Shipped:
+`tolerance_kappa` (|a − b| ≤ 1 counts as agreement; po from the
+tolerant pairs, pe from marginals over each level's ±1 band) in
+`stats/agreement.py`, and `calibration.py` (pure, no I/O): joins
+judge rows and label rows on (task_id, condition), validates label
+scores are in 1..5, and per labeled dimension computes Spearman /
+Pearson / strict-κ / tolerance-κ / weighted-κ, judge bias
+mean(judge − human) with a bootstrap CI (B = 10,000, seed 1337), and
+the 5×5 confusion matrix (rows human, columns judge). Decision rule
+from section 5: a dimension is *gate-worthy* iff Spearman ≥ 0.6 and
+|bias| ≤ 0.5; otherwise *report-only* (undefined Spearman —
+n < 2 or zero variance — is report-only). CLI: `calibrate --run
+<run> --labels <jsonl>` writes `reports/calibration/<run>/
+{agreement.json, report.md}` with the rule and verdicts stated in the
+report body (report-only dimensions must not drive the M5 gate or a
+go/no-go). 8 new tests (132 total green, ruff clean) cover the
+hand-computed tolerance-κ references (perfect → 1.0; one-level shift
+→ 7/12; degenerate margins raise), the gate-worthy happy path
+(5/5 diagonal → all κ = 1, bias 0), a systematic +1 judge (Spearman
+1.0 but bias 1.0 > 0.5 → report-only, κ-strict = −3/13), a reversed
+scale (Spearman −1 → report-only), unmatched rows and never-judged
+dimensions, and zero-variance judge (correlations undefined, all κ =
+0, bias +2.0). End-to-end CLI smoke on a 4-row fixture: exit 0,
+correct verdict, table and 5×5 matrix render. Once the labels land
+in `data/human_labels/tutor_labels.jsonl`, the real run is a single
+command: `python -m llm_eval_harness calibrate --run
+qwen-qlora-dogfood --labels data/human_labels/tutor_labels.jsonl`.
+
 ## 11. Risks & mitigations
 
 | Risk | Mitigation |

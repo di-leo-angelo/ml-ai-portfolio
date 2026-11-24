@@ -4,8 +4,9 @@ M2 landed the agreement functions the port validation needs (Pearson /
 Spearman correlation of P0 judge scores against P1's legacy
 ``judge_scores.jsonl``); M3 adds bootstrap CIs (percentile, plain /
 stratified / paired), exact McNemar with Clopper-Pearson CI, and
-Cohen's / quadratic-weighted kappa. No scipy, no sklearn (PLAN.md
-section 6).
+Cohen's / quadratic-weighted kappa. M4 adds tolerance kappa
+(|a - b| <= 1 counts as agreement) for the judge calibration
+join. No scipy, no sklearn (PLAN.md section 6).
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from .agreement import (
     pearson,
     quadratic_weighted_kappa,
     spearman,
+    tolerance_kappa,
 )
 from .bootstrap import (
     bootstrap_ci,
@@ -36,4 +38,5 @@ __all__ = [
     "quadratic_weighted_kappa",
     "spearman",
     "stratified_bootstrap_ci",
+    "tolerance_kappa",
 ]

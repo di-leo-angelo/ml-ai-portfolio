@@ -5,16 +5,21 @@ M1 commands: ``generate`` (drive generation for a run config) and
 M2 commands: ``import-generations`` (P1 raw_outputs -> harness
 generations), ``grade`` (deterministic graders, CPU-only), ``judge``
 (LLM-as-judge, resume-safe, ``--against`` correlation vs a P1 legacy
-file), ``pairwise`` (position-swapped pairwise smoke). Later milestones
-add calibrate / report / gate (PLAN.md).
+file), ``pairwise`` (position-swapped pairwise smoke). M4 adds
+``calibrate`` (judge vs human labels, PLAN section 5). Later
+milestones add report / gate (PLAN.md).
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import sys
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
+from .calibration import calibrate, render_report
 from .legacy import import_generations, import_jsonl
 from .runner import run_generation, run_grading, run_judging, run_pairwise
 
@@ -47,6 +52,93 @@ def _cmd_import_generations(args: argparse.Namespace) -> int:
         f"({', '.join(f'{k}: {v}' for k, v in sorted(by_condition.items()))}) "
         f"-> {output}"
     )
+    return 0
+
+
+def _read_jsonl(path: Path, what: str) -> list[dict[str, Any]]:
+    """JSONL reader with the same torn-tail tolerance as the stores."""
+    if not path.is_file():
+        raise FileNotFoundError(f"{what} not found: {path}")
+    lines = [
+        line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+    records: list[dict[str, Any]] = []
+    for index, line in enumerate(lines):
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            if index == len(lines) - 1:
+                continue  # torn tail from a crash mid-write
+            raise ValueError(f"malformed line {index + 1} in {path}") from None
+    return records
+
+
+def _cmd_calibrate(args: argparse.Namespace) -> int:
+    """M4: join human labels to the run's judge scores (PLAN section 5)."""
+    run = Path(args.run)
+    judge_path = (
+        run / "judge_scores.jsonl"
+        if run.is_dir()
+        else Path("reports") / run / "judge_scores.jsonl"
+    )
+    try:
+        judge_rows = _read_jsonl(judge_path, "judge scores")
+        label_rows = _read_jsonl(Path(args.labels), "labels")
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    if not judge_rows or not label_rows:
+        print("error: judge scores or labels are empty", file=sys.stderr)
+        return 2
+    try:
+        result = calibrate(judge_rows, label_rows)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    if result["joined"] < 2:
+        print(
+            f"error: only {result['joined']} label row(s) joined to the "
+            "judge store - need at least 2 (check task_id/condition overlap)",
+            file=sys.stderr,
+        )
+        return 2
+
+    def mode(rows: list[dict[str, Any]], field: str) -> str:
+        return ", ".join(
+            sorted({str(r[field]) for r in rows if r.get(field) is not None})
+        )
+
+    meta = {
+        "run": run.name,
+        "ts": datetime.now(UTC).isoformat(),
+        "labels_path": str(Path(args.labels).resolve()),
+        "annotators": sorted({str(r.get("annotator", "?")) for r in label_rows}),
+        "judge_model": mode(judge_rows, "judge_model"),
+        "rubric_version": mode(judge_rows, "rubric_version"),
+    }
+    out_dir = (
+        Path(args.output_dir)
+        if args.output_dir
+        else Path("reports/calibration") / judge_path.parent.name
+    )
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "agreement.json").write_text(
+        json.dumps({**meta, **result}, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    (out_dir / "report.md").write_text(render_report(result, meta), encoding="utf-8")
+
+    print(f"calibration: {result['joined']}/{result['labels_total']} labels joined")
+    for dim, entry in result["dimensions"].items():
+        spear = entry.get("spearman")
+        bias = entry.get("bias", {}).get("mean")
+        print(
+            f"  {dim}: n={entry['n']} spearman="
+            f"{spear if spear is not None else 'undefined'} "
+            f"bias={f'{bias:+.3f}' if bias is not None else 'n/a'} "
+            f"-> {entry['verdict']}"
+        )
+    print(f"Output: {out_dir / 'agreement.json'}, {out_dir / 'report.md'}")
     return 0
 
 
@@ -180,6 +272,25 @@ def build_parser() -> argparse.ArgumentParser:
         default=1,
         help="parallel judge requests for api/runpod backends (>= 1)",
     )
+    calibrate_cmd = sub.add_parser(
+        "calibrate",
+        help="calibrate the judge against human labels (M4, PLAN section 5)",
+    )
+    calibrate_cmd.add_argument(
+        "--run",
+        required=True,
+        help="run name under reports/ (or a path to the run directory)",
+    )
+    calibrate_cmd.add_argument(
+        "--labels",
+        required=True,
+        help="human labels JSONL (PLAN section 3.4; see tools/LABELING.md)",
+    )
+    calibrate_cmd.add_argument(
+        "--output-dir",
+        default=None,
+        help="output directory (default: reports/calibration/<run>)",
+    )
     return parser
 
 
@@ -224,6 +335,8 @@ def main(argv: list[str] | None = None) -> int:
             limit=args.limit,
             concurrency=args.concurrency,
         )
+    if args.command == "calibrate":
+        return _cmd_calibrate(args)
     return 2  # pragma: no cover - argparse enforces a known command
 
 

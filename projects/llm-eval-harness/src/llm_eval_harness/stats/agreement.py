@@ -91,6 +91,36 @@ def cohen_kappa(a: object, b: object) -> float:
     return float((po - pe) / (1.0 - pe))
 
 
+def tolerance_kappa(a: object, b: object, tolerance: int = 1) -> float:
+    """Cohen's kappa where |a - b| <= tolerance counts as agreement.
+
+    Observed agreement po counts the tolerant pairs; chance agreement
+    pe is computed from the marginals over the tolerance band of each
+    level, sum_i p_i * q(band(i)). Raises on degenerate margins
+    (pe = 1).
+    """
+    if len(a) != len(b):
+        raise ValueError("a and b must have equal length")
+    n = len(a)
+    if n < 1:
+        raise ValueError("need at least 1 paired observation")
+    if tolerance < 1:
+        raise ValueError("tolerance must be >= 1")
+    p: dict[float, float] = {}
+    q: dict[float, float] = {}
+    for x, y in zip(a, b, strict=True):
+        p[x] = p.get(x, 0.0) + 1.0
+        q[y] = q.get(y, 0.0) + 1.0
+    po = sum(1 for x, y in zip(a, b, strict=True) if abs(x - y) <= tolerance) / n
+    pe = 0.0
+    for level, mass in p.items():
+        band = sum(m for val, m in q.items() if abs(val - level) <= tolerance)
+        pe += (mass / n) * (band / n)
+    if abs(1.0 - pe) < 1e-12:
+        raise ValueError("degenerate margins: tolerance kappa undefined")
+    return float((po - pe) / (1.0 - pe))
+
+
 def quadratic_weighted_kappa(a: object, b: object, k: int = 5) -> float:
     """Quadratic weighted kappa on an ordered 1..k scale.
 
