@@ -298,6 +298,85 @@ def test_second_run_is_noop(tmp_path, fake_api) -> None:
     assert len(controller.requests) == 0  # everything already present
 
 
+def test_runner_releases_backend_after_each_condition(
+    tmp_path, fake_api, monkeypatch
+) -> None:
+    """run_generation must release each condition's backend when its
+    generation is done.
+
+    The local backend loads one full model per condition, and two local
+    4-bit 27B models must never share one process: the first condition's
+    ~19 GB is still resident when the second starts, which OOMs a 24 GB
+    card (the T1 first-run failure). The runner releases explicitly
+    between conditions; this records the release order with two API
+    conditions standing in for two local ones.
+    """
+    import llm_eval_harness.runner as runner_mod
+
+    controller, base_url = fake_api
+    data = tmp_path / "tasks.jsonl"
+    data.write_text(json.dumps({"id": "a", "prompt": "P"}) + "\n", encoding="utf-8")
+    out_dir = tmp_path / "out"
+    config = tmp_path / "run.toml"
+    lines = [
+        'name = "releasetest"',
+        f'data = "{data.as_posix()}"',
+        "temperature = 0.0",
+        "max_tokens = 16",
+        f'output_dir = "{out_dir.as_posix()}"',
+    ]
+    for name in ("a", "b"):
+        lines += [
+            "",
+            f"[conditions.{name}]",
+            "seed = 0",
+            "",
+            f"[conditions.{name}.backend]",
+            'kind = "api"',
+            f'base_url = "{base_url}"',
+            'model = "fake-model"',
+            'api_key_env = "FAKE_HARNESS_KEY"',
+        ]
+    lines += [
+        "",
+        "[judge]",
+        'dimensions = ["correctness"]',
+        "",
+        "[judge.backend]",
+        'kind = "api"',
+        f'base_url = "{base_url}"',
+        # distinct from the conditions' model: the judge!=testee
+        # guard rejects a config where the judge grades its own outputs
+        'model = "fake-judge"',
+        'api_key_env = "FAKE_HARNESS_KEY"',
+    ]
+    config.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    released: list[str] = []
+    real_build = runner_mod.build_backend
+
+    def build(name, backend_config, concurrency=1):
+        inner = real_build(name, backend_config, concurrency)
+
+        class _Recording:
+            kind = inner.kind
+            name = inner.name
+            model = inner.model
+
+            def generate(self, jobs):
+                return inner.generate(jobs)
+
+            def release(self) -> None:
+                released.append(name)
+
+        return _Recording()
+
+    monkeypatch.setattr(runner_mod, "build_backend", build)
+    assert run_generation(config) == 0
+    assert len(controller.requests) == 2  # one task per condition
+    assert released == ["a", "b"]  # released per condition, in order
+
+
 def test_store_drops_torn_tail(tmp_path) -> None:
     path = tmp_path / "generations.jsonl"
     good = GenerationRecord(

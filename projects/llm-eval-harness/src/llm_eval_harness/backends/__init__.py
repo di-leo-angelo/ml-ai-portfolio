@@ -52,6 +52,10 @@ class Backend(Protocol):
 
     def generate(self, jobs: Sequence[GenerationJob]) -> Iterator[GenerationRecord]: ...
 
+    def release(self) -> None:
+        """Free any in-process model (the runner calls it between conditions)."""
+        ...
+
 
 def build_backend(
     condition_name: str, backend: BackendConfig, concurrency: int = 1

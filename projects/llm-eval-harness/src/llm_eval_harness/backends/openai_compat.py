@@ -200,3 +200,6 @@ class OpenAICompatBackend:
             return
         for job in jobs:
             yield self._generate_one(job)
+
+    def release(self) -> None:
+        """No-op: the API backend holds no in-process model."""

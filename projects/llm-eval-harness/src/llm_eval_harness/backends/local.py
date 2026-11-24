@@ -142,3 +142,25 @@ class LocalHFBackend:
                 raise GenerationError(
                     f"local generation failed for {job.task_id}: {exc}"
                 ) from exc
+
+    def release(self) -> None:
+        """Free the loaded model so the next condition can load its own.
+
+        ``run_generation`` builds one backend per condition and calls
+        this between conditions: two local 4-bit 27B models must never
+        share one process - the first condition's ~19 GB is still
+        resident while the second loads, which OOMs a 24 GB card (the
+        T1 first-run failure). Python's gc is non-deterministic, so the
+        runner releases explicitly instead of relying on it.
+        """
+        if self._model is None:
+            return
+        import gc
+
+        import torch
+
+        self._model = None
+        self._tokenizer = None
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()

@@ -198,6 +198,11 @@ def run_generation(
                 flush=True,
             )
         generated += completed
+        # Free this condition's model before the next condition's backend
+        # loads: two local 4-bit 27B models must never share one process
+        # (the first ~19 GB is still resident when the second starts -
+        # T1 first-run OOM on a 24 GB card). No-op for API backends.
+        backend.release()
     print(
         f"done: {generated} generated, {skipped} skipped, {failed} failed. "
         f"Output: {out_dir / 'generations.jsonl'}",
