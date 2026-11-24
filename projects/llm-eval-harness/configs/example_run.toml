@@ -5,7 +5,7 @@
 # (the local backend needs the GPU pod; see PLAN.md section 8).
 
 name = "qwen-qlora-dogfood"
-# P1's 230-row test split (gitignored; generated locally - see
+# P1's 230-row test split (committed as reference data - see
 # projects/qwen-qlora/data/split.json for the manifest and hashes).
 data = "projects/qwen-qlora/data/test.jsonl"
 temperature = 0.0
