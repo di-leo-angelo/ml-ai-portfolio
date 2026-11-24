@@ -1,0 +1,37 @@
+# M5 CI smoke run (PLAN section 7): 30 lora tasks from P1's test split
+# (deterministic, seed 1337: 15 math + 15 non-math), on P1's *recorded*
+# outputs - baselines/ci_smoke/generations.jsonl is committed, so the CI
+# job never generates: it copies those rows into the run dir, then runs
+# grade (CPU) -> judge (free RunPod serverless endpoint) -> report -> gate.
+#
+# The condition is provenance-only (kind = "imported"): it declares which
+# model produced the imported outputs. Do NOT run `generate` with this
+# config. Rubric and judge endpoint mirror configs/dogfood_p1.toml.
+
+name = "ci-smoke"
+data = "projects/llm-eval-harness/baselines/ci_smoke/tasks.jsonl"
+output_dir = "projects/llm-eval-harness/reports/ci-smoke"
+
+[conditions.lora]
+seed = 0
+
+[conditions.lora.backend]
+kind = "imported"
+model = "Qwen3.8-27B+LoRA"
+source = "qwen-qlora:raw_outputs (M5 CI smoke subset, seed 1337)"
+
+[judge]
+batch_size = 5
+temperature = 0.0
+max_tokens = 1024
+
+[judge.dimensions]
+correctness = "1 = wrong final answer or broken reasoning ... 5 = fully correct (a different but valid method is fine)"
+format = "1 = no step-by-step structure, rambling or off-format ... 5 = clear, concise step-by-step tutor format"
+completeness = "1 = does not address the question or omits the final answer ... 5 = fully addresses the question, states the final answer, self-checks where appropriate"
+
+[judge.backend]
+kind = "api"
+base_url = "https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1"
+model = "Qwen/Qwen3-32B-AWQ"
+api_key_env = "RUNPOD_API_KEY"

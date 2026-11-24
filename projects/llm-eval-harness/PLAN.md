@@ -591,6 +591,55 @@ in `data/human_labels/tutor_labels.jsonl`, the real run is a single
 command: `python -m llm_eval_harness calibrate --run
 qwen-qlora-dogfood --labels data/human_labels/tutor_labels.jsonl`.
 
+**Status (2026-11-24, M5):** report + CI-gate pipeline complete and
+tested; the live CI-smoke baseline is held for a funded endpoint.
+Shipped: `report.py` (the `report` command: `summary.json` - the gate
+contract with `meta.schema = 1` and a flat dotted-name metrics table:
+`exact_match.pass_rate` (true/answered, abstentions excluded +
+bootstrap CI), `exact_match.abstention_rate` (the refuse-everything
+guardrail), `format.word_count.p95`, `judge.coverage` (judged /
+generated pairs), `judge.parse_json_rate`, `judge.<dim>.mean` with
+bootstrap CIs (B = 10,000, seed 1337) - plus `report.md` where every
+headline number carries its CI and n and parse coverage is printed
+next to every judge metric per section 6; provenance in `meta`:
+task-file SHA-256, git commit, judge model, rubric version). `gate.py`
+(the `gate` command: compares a run's `summary.json` against a
+committed baseline under a gate TOML - `min_delta` / `max_delta` /
+`ci_low_min` per metric, `check = false` for report-only metrics,
+`[guards] judge_coverage_min`; exit codes 0 = pass, 1 = regression,
+2 = error (missing baseline/summary/metric/CI, unknown schema,
+coverage below the guard); task-file hash mismatch is a loud warning,
+not a failure; writes `gate.json` + `gate_report.md`). Acceptance
+state: (1) `gate` passes against its own baseline - exit 0 verified
+live on the committed `baselines/tutor.json` (the dogfood summary;
+provenance: P1 test split sha256 52b6cd95d48c384d..., commit e27c4f3,
+judge Qwen/Qwen3-32B-AWQ). (2) The planted -0.05 regression fails
+(exit 1), the coverage guard triggers on a 90% fixture (exit 2), and
+`ci_low_min` / `max_delta` / `check = false` / schema and hash-mismatch
+behavior are unit-tested in `tests/test_gate.py` + `tests/test_report.py`
+(21 new tests, 153 total green, ruff clean) - including the exact M5
+acceptance shapes. (3) CI assets committed: the 30-task smoke set
+(`baselines/ci_smoke/{tasks,generations}.jsonl`, deterministic seed
+1337, 15 math + 15 non-math, P1's recorded outputs so CI never
+generates), `configs/ci_smoke.toml`, and `configs/ci_smoke_gate.toml`
+(enforced floor: exact-match pass rate unchanged - min_delta 0.0,
+since the committed generations make the grade deterministic - and a
+judge-coverage floor of 0.90 for n = 30; judge dimensions
+`check = false` pending the M4 verdict). **Blocked on the user:** the
+RunPod endpoint now returns 402 (Payment Required) - the key's funds
+were exhausted by the M2 dogfood's 255 judge calls. The CI-smoke
+baseline (`baselines/ci_smoke/baseline.json`) and the `eval-gate`
+job in `.github/workflows/ci.yml` are written locally but deliberately
+uncommitted so main's CI stays green during the 402 window. Resume
+once funds are restored (judge is resume-safe; 30 samples, ~$0.05):
+`judge --config configs/ci_smoke.toml --env-file .env --concurrency 3`,
+then `report --run reports/ci-smoke --config configs/ci_smoke.toml`,
+then `gate --run reports/ci-smoke --baseline
+baselines/ci_smoke/baseline.json --config configs/ci_smoke_gate.toml`
+(first run: copy `reports/ci-smoke/summary.json` into
+`baselines/ci_smoke/baseline.json` before the gate), then commit the
+job.
+
 ## 11. Risks & mitigations
 
 | Risk | Mitigation |

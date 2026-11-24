@@ -1,0 +1,28 @@
+# M5 gate thresholds for the full tutor test-split run (PLAN section 7).
+#
+# Only gate-worthy metrics (section 5) may be checked. The judge
+# dimensions await the M4 calibration verdict (human labeling in
+# progress); until then they are listed with check = false, so they
+# show up in gate_report.md but are not enforced. The enforced floor is
+# the deterministic exact-match signal (no judge involved) plus the
+# parse-coverage guard.
+
+[guards]
+judge_coverage_min = 0.95
+
+[metrics."exact_match.pass_rate"]
+min_delta = -0.02
+ci_low_min = 0.30
+
+[metrics."format.word_count.p95"]
+max_delta = 50
+
+[metrics."judge.correctness.mean"]
+check = false
+min_delta = 0.0
+
+[metrics."judge.format.mean"]
+check = false
+
+[metrics."judge.completeness.mean"]
+check = false

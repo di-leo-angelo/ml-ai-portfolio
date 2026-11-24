@@ -1,0 +1,31 @@
+# M5 gate thresholds for the 30-task CI smoke (PLAN section 7).
+#
+# The committed generations (baselines/ci_smoke/generations.jsonl) are
+# byte-identical on every run and the graders are deterministic, so
+# exact_match.pass_rate must be *unchanged* (min_delta = 0.0): any
+# grader regression that flips an answer fails CI. Judge dimensions
+# await the M4 calibration verdict and are check = false until then.
+#
+# The coverage floor is 0.90 here (not the full run's 0.95): on n = 30
+# two parse failures would already be 0.933, and one flaky free-endpoint
+# reply must not fail the whole CI - three or more would.
+
+[guards]
+judge_coverage_min = 0.90
+
+[metrics."exact_match.pass_rate"]
+min_delta = 0.0
+ci_low_min = 0.05
+
+[metrics."format.word_count.p95"]
+max_delta = 50
+
+[metrics."judge.correctness.mean"]
+check = false
+min_delta = 0.0
+
+[metrics."judge.format.mean"]
+check = false
+
+[metrics."judge.completeness.mean"]
+check = false

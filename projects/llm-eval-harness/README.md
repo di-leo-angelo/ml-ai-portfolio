@@ -6,7 +6,8 @@ OpenAI-compatible API / RunPod), LLM-as-judge with structured rubric
 scoring, calibration against human labels, bootstrap/McNemar statistics,
 and a CI regression gate.
 
-**Status: M3 + M4 pipeline shipped (2026-11-24); M2 accepted the same day with one
+**Status: M5 report + CI-gate pipeline shipped (2026-11-24); M3 stats
+and M4 calibration shipped the same day; M2 accepted with one
 documented exception.**
 M0-M4 shipped: run config + task specs; `local` HF / `api` / `runpod`
 backends with resume-safe generation; the deterministic graders and the
@@ -17,7 +18,11 @@ layer (bootstrap CIs - plain / stratified / paired, exact McNemar with
 Clopper-Pearson CI, Cohen's / quadratic / tolerance kappa) and the M4
 judge-calibration pipeline (`calibrate`: join human labels to judge
 scores, per-dimension agreement + bias + 5x5 confusion, gate-worthy vs
-report-only verdicts). 132 tests green, and the
+report-only verdicts). M5 adds `report` (summary.json + report.md, the
+gate contract) and `gate` (committed-baseline comparison with
+min/max-delta, CI-floor and parse-coverage guards; 0/1/2 exit codes),
+plus the committed 30-task CI smoke set and its baseline. 153 tests
+green, and the
 graders reproduce P1's `graded.jsonl` field-for-field on all 230 LoRA
 rows (0/7-field mismatches). Live acceptance on the RTX 3090: local
 smoke PASS (adapter on/off, peaks 18.8/19.3 GB, resume-safety

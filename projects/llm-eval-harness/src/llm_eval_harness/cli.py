@@ -6,8 +6,9 @@ M2 commands: ``import-generations`` (P1 raw_outputs -> harness
 generations), ``grade`` (deterministic graders, CPU-only), ``judge``
 (LLM-as-judge, resume-safe, ``--against`` correlation vs a P1 legacy
 file), ``pairwise`` (position-swapped pairwise smoke). M4 adds
-``calibrate`` (judge vs human labels, PLAN section 5). Later
-milestones add report / gate (PLAN.md).
+``calibrate`` (judge vs human labels, PLAN section 5). M5 adds
+``report`` (summary.json + report.md, the gate contract) and ``gate``
+(baseline comparison, PLAN section 7).
 """
 
 from __future__ import annotations
@@ -20,7 +21,10 @@ from pathlib import Path
 from typing import Any
 
 from .calibration import calibrate, render_report
+from .config import ConfigError, load_run_config
+from .gate import run_gate
 from .legacy import import_generations, import_jsonl
+from .report import read_jsonl_tolerant, write_run_report
 from .runner import run_generation, run_grading, run_judging, run_pairwise
 
 
@@ -55,24 +59,6 @@ def _cmd_import_generations(args: argparse.Namespace) -> int:
     return 0
 
 
-def _read_jsonl(path: Path, what: str) -> list[dict[str, Any]]:
-    """JSONL reader with the same torn-tail tolerance as the stores."""
-    if not path.is_file():
-        raise FileNotFoundError(f"{what} not found: {path}")
-    lines = [
-        line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
-    ]
-    records: list[dict[str, Any]] = []
-    for index, line in enumerate(lines):
-        try:
-            records.append(json.loads(line))
-        except json.JSONDecodeError:
-            if index == len(lines) - 1:
-                continue  # torn tail from a crash mid-write
-            raise ValueError(f"malformed line {index + 1} in {path}") from None
-    return records
-
-
 def _cmd_calibrate(args: argparse.Namespace) -> int:
     """M4: join human labels to the run's judge scores (PLAN section 5)."""
     run = Path(args.run)
@@ -82,8 +68,8 @@ def _cmd_calibrate(args: argparse.Namespace) -> int:
         else Path("reports") / run / "judge_scores.jsonl"
     )
     try:
-        judge_rows = _read_jsonl(judge_path, "judge scores")
-        label_rows = _read_jsonl(Path(args.labels), "labels")
+        judge_rows = read_jsonl_tolerant(judge_path, "judge scores")
+        label_rows = read_jsonl_tolerant(Path(args.labels), "labels")
     except (FileNotFoundError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -139,6 +125,37 @@ def _cmd_calibrate(args: argparse.Namespace) -> int:
             f"-> {entry['verdict']}"
         )
     print(f"Output: {out_dir / 'agreement.json'}, {out_dir / 'report.md'}")
+    return 0
+
+
+def _cmd_report(args: argparse.Namespace) -> int:
+    """M5: write the run's ``summary.json`` + ``report.md`` (PLAN 6-7)."""
+    run = Path(args.run)
+    run_dir = run if run.is_dir() else Path("reports") / run
+    if not run_dir.is_dir():
+        print(f"error: run directory not found: {run_dir}", file=sys.stderr)
+        return 2
+    config = None
+    config_path: str | None = None
+    if args.config:
+        try:
+            config = load_run_config(args.config)
+            config_path = args.config
+        except ConfigError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+    try:
+        summary = write_run_report(run_dir, config, config_path)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    meta = summary["meta"]
+    print(f"report: {meta['run_id']} - {len(summary['metrics'])} metrics")
+    for name, entry in summary["metrics"].items():
+        ci = entry.get("ci")
+        ci_s = f"  95% CI [{ci[0]:.4f}, {ci[1]:.4f}]" if ci else ""
+        print(f"  {name}: {entry['value']}{ci_s} (n={entry['n']})")
+    print(f"Output: {run_dir / 'summary.json'}, {run_dir / 'report.md'}")
     return 0
 
 
@@ -291,6 +308,44 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="output directory (default: reports/calibration/<run>)",
     )
+    report_cmd = sub.add_parser(
+        "report",
+        help="write the run's summary.json + report.md (M5, PLAN sections 6-7)",
+    )
+    report_cmd.add_argument(
+        "--run",
+        required=True,
+        help="run name under reports/ (or a path to the run directory)",
+    )
+    report_cmd.add_argument(
+        "--config",
+        default=None,
+        help="the run's TOML (provenance: task-file hash, dimension order)",
+    )
+    gate_cmd = sub.add_parser(
+        "gate",
+        help="gate the run's summary against a committed baseline (M5, PLAN 7)",
+    )
+    gate_cmd.add_argument(
+        "--run",
+        required=True,
+        help="run name under reports/ (or a path to the run dir / summary.json)",
+    )
+    gate_cmd.add_argument(
+        "--baseline",
+        required=True,
+        help="committed baseline summary.json (e.g. baselines/tutor.json)",
+    )
+    gate_cmd.add_argument(
+        "--config",
+        required=True,
+        help="gate thresholds TOML (e.g. configs/gate.toml)",
+    )
+    gate_cmd.add_argument(
+        "--output-dir",
+        default=None,
+        help="output directory (default: the run directory)",
+    )
     return parser
 
 
@@ -337,6 +392,15 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.command == "calibrate":
         return _cmd_calibrate(args)
+    if args.command == "report":
+        return _cmd_report(args)
+    if args.command == "gate":
+        return run_gate(
+            args.run,
+            args.baseline,
+            args.config,
+            output_dir=args.output_dir,
+        )
     return 2  # pragma: no cover - argparse enforces a known command
 
 

@@ -1,0 +1,67 @@
+{
+  "meta": {
+    "schema": 1,
+    "run_id": "qwen-qlora-dogfood",
+    "generated_at": "2026-11-24T22:43:19.864156+00:00",
+    "harness_version": "0.1.0",
+    "config": "projects/llm-eval-harness/configs/dogfood_p1.toml",
+    "tasks_file": "projects/qwen-qlora/data/test.jsonl",
+    "tasks_sha256": "52b6cd95d48c384d6a2d2fffeea9c1e9d97cb4dfc37576c7e9b7f21b7f33653d",
+    "git_commit": "e27c4f3382d15219815a3c47b7ef2884d6e4e5c6",
+    "judge_model": "Qwen/Qwen3-32B-AWQ",
+    "rubric_version": "custom",
+    "n_generations": 255,
+    "n_graded": 255,
+    "n_judged": 255
+  },
+  "metrics": {
+    "exact_match.pass_rate": {
+      "value": 0.560345,
+      "ci": [
+        0.465517,
+        0.646552
+      ],
+      "n": 116
+    },
+    "exact_match.abstention_rate": {
+      "value": 0.107692,
+      "n": 130
+    },
+    "format.word_count.p95": {
+      "value": 356.0,
+      "n": 255
+    },
+    "judge.coverage": {
+      "value": 1.0,
+      "n": 255
+    },
+    "judge.parse_json_rate": {
+      "value": 1.0,
+      "n": 255
+    },
+    "judge.correctness.mean": {
+      "value": 4.854902,
+      "ci": [
+        4.803922,
+        4.901961
+      ],
+      "n": 255
+    },
+    "judge.format.mean": {
+      "value": 4.635294,
+      "ci": [
+        4.560784,
+        4.705882
+      ],
+      "n": 255
+    },
+    "judge.completeness.mean": {
+      "value": 4.733333,
+      "ci": [
+        4.658824,
+        4.803922
+      ],
+      "n": 255
+    }
+  }
+}
