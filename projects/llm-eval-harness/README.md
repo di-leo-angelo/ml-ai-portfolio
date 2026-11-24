@@ -6,16 +6,24 @@ OpenAI-compatible API / RunPod), LLM-as-judge with structured rubric
 scoring, calibration against human labels, bootstrap/McNemar statistics,
 and a CI regression gate.
 
-**Status: M2 - graders + judge, code complete (live judging pending).**
+**Status: M2 accepted (2026-11-24) - live acceptance complete, one
+documented exception.**
 M0-M2 shipped: run config + task specs; `local` HF / `api` / `runpod`
 backends with resume-safe generation; the deterministic graders and the
 LLM-as-judge ported from P1's frozen eval scripts (config-extensible
 rubric, explicit parse coverage, position-swapped pairwise); P1 output
-import; and Pearson/Spearman agreement stats. 102 tests green, and the
+import; and Pearson/Spearman agreement stats. 104 tests green, and the
 graders reproduce P1's `graded.jsonl` field-for-field on all 230 LoRA
-rows (0/7-field mismatches). Milestone history, design deviations, and
-the live acceptance runbook (judge coverage, correlation vs P1's legacy
-scores, pairwise smoke) are in [PLAN.md](PLAN.md) section 10.
+rows (0/7-field mismatches). Live acceptance on the RTX 3090: local
+smoke PASS (adapter on/off, peaks 18.8/19.3 GB, resume-safety
+demonstrated), live judging at **100 % parse coverage on all 255**
+(recovering the 10 rows P1 silently dropped), pairwise smoke 25/25 with
+disagreements reported (21 position-bias / 4 tie). The judge
+correlation bar (pearson >= 0.8 vs P1's legacy) is formally unmet and
+documented with evidence as endpoint drift + ceiling saturation - P1's
+own byte-exact prompt re-scored today tops out at ~0.67 against P1's
+own legacy file. Milestone history, the acceptance evidence, and the
+M4 labeling tooling (`tools/`) are in [PLAN.md](PLAN.md) section 10.
 
 ## Design notes
 

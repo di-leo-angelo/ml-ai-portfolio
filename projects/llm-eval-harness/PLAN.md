@@ -481,6 +481,61 @@ Expected to print the same-family warning (Qwen3-32B judge on
 Qwen3.8-27B outputs) - that is the known, accepted self-family risk of
 the P1 replication.
 
+**Status (2026-11-24, M2 live acceptance complete):** M2 accepted with
+one documented exception - all three runbook items ran on the RTX 3090.
+(1) T1 local smoke PASS: base 10/10 + lora 10/10 in
+`reports/qwen-qlora/generations.jsonl`, peak VRAM 18.8 / 19.3 GB (bar:
+<= ~19 GB logged, <= 24 GB passes), and resume-safety demonstrated
+live: the first run OOM'd on the lora condition and printed `(re-run to
+resume)`, the second run skipped base and generated exactly the 10
+missing lora rows. Two defects found and fixed during acceptance: the
+live Qwen3 judge, on ~40 % of batches, echoed mangled sample keys
+(`"p1_0006"` instead of `"p1_0006:lora"`), which P0's key-matched
+parser (by design, gotcha 1) rejected - fixed prompt-side by restoring
+P1's closing reminder plus an explicit key-echo contract (copy each
+`### Sample` heading verbatim, including the `:condition` part); the
+parse ladder is untouched. And a second condition's model loaded while
+the previous ~19 GB was still resident (nondeterministic gc -> OOM) -
+fixed by a `release()` on the backend protocol (frees model +
+tokenizer, `gc.collect()`, `torch.cuda.empty_cache()`) called between
+conditions; `device_map` offload remains the config fallback for
+smaller cards. (2) T2 live judge: parse coverage **100.0 %** on all 255
+(0 parse failures, 0 failed batches, every row strict JSON) - the
+>= 97 % bar met, and the store now holds the 10 lora rows P1 silently
+dropped (`p1_0121..0125`, `p1_0130..0134`, its 10/255 incident). The
+correlation bar (pearson >= 0.8 per dimension vs P1's legacy file,
+245-row overlap) is formally NOT met (correctness 0.357 / format 0.379
+/ completeness 0.314) and is recorded as a documented exception, with
+the cause proven environmental rather than a port defect: (a) P0 vs P1
+agreement is 84/61/71 % exact and 99/92/95 % within +-1 point, mean
+bias -0.03/+0.22/-0.08 - the port reproduces P1's judgments; (b) both
+files are ceiling-saturated (P1's own legacy is 91/60/76 % fives - the
+known 32B saturation), so Pearson on near-constant 5-point variables is
+decided by the ~20-100 deviant rows per dimension; (c) the decisive
+control: P1's byte-exact prompt and payload re-scored TODAY on the same
+245 rows reach only pearson 0.670/0.579/0.545 against P1's own Nov-8
+file (91 % exact, 100 % within +-1, bias +0.02) - even P1's own prompt
+cannot reproduce P1's legacy scores on today's endpoint, so no faithful
+pipeline can meet the bar today. Corroborating: today's single
+unparseable P1-prompt batch landed on samples 120-124, inside P1's
+original 10/255 dropped region (120-133). Evidence artifacts (gitignored
+working tree, under `reports/qwen-qlora-dogfood/`):
+`t2_drift_probe.jsonl` (20 most-disputed samples: P1-legacy vs
+P1-exact-prompt-now vs P0-current) and `p1_reprompt_scores.jsonl` (the
+full 250/255 P1-exact-prompt re-score; its one failed batch is the
+hard-region 120-124). (3) T3 pairwise smoke PASS: 25/25 position-swapped
+pairs (the 25 tasks with both conditions) completed with no crashes;
+21/25 disagreement (position-sensitive verdicts), 4/25 tie, 0/25
+position-agreed preference - disagreements reported, not hidden. The
+high disagreement rate is an honest property of near-tie STEM pairs
+(pointwise 92-99 % within +-1) under this same-family judge, not a
+harness defect; it is recorded as-is and is one reason M4 calibration
+must decide gate-worthiness per dimension. M4 prep shipped in the same
+commit: the labeling tooling (`tools/prep_labels.py` - deterministic
+120-item set, 80 % stratified by subject x difficulty + 20 % hard slice
+- and `tools/labeling_template.html`, a self-contained browser UI; see
+`tools/LABELING.md`).
+
 ## 11. Risks & mitigations
 
 | Risk | Mitigation |

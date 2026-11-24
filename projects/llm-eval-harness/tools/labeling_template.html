@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tutor answer labeling</title>
+<style>
+  :root { --ok:#2e7d32; --part:#f9a825; --none:#cfd8dc; --ink:#202124; --mut:#5f6368; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, "Segoe UI", sans-serif; color: var(--ink);
+         margin: 0; background: #f6f8fa; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 16px 20px 60px; }
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+           padding: 10px 0 14px; border-bottom: 1px solid #dde3ea; margin-bottom: 14px; }
+  header h1 { font-size: 18px; margin: 0; flex: 1; }
+  .bar { flex-basis: 160px; height: 10px; background: #e1e5ea; border-radius: 5px; overflow: hidden; }
+  .bar > div { height: 100%; background: var(--ok); width: 0; }
+  button { font: inherit; cursor: pointer; border: 1px solid #b9c2cc; background: #fff;
+           border-radius: 6px; padding: 5px 12px; }
+  button:hover { background: #eef2f6; }
+  button:disabled { opacity: .45; cursor: default; }
+  .dots { display: flex; flex-wrap: wrap; gap: 3px; margin: 10px 0 16px; }
+  .dots button { width: 15px; height: 15px; padding: 0; border-radius: 3px;
+                 border: 1px solid #b9c2cc; background: #fff; }
+  .dots .done { background: var(--ok); }
+  .dots .part { background: var(--part); }
+  .dots .here { outline: 2px solid #1a73e8; outline-offset: 1px; }
+  .badge { display: inline-block; background: #e8f0fe; color: #174ea6; border-radius: 10px;
+           padding: 2px 10px; font-size: 13px; margin-right: 6px; }
+  .sys { color: var(--mut); font-size: 13.5px; font-style: italic; margin: 8px 0; }
+  .card { background: #fff; border: 1px solid #dde3ea; border-radius: 8px;
+          padding: 14px 16px; margin: 10px 0; }
+  .card h3 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase;
+             letter-spacing: .04em; color: var(--mut); }
+  .qa { white-space: pre-wrap; line-height: 1.45; }
+  .ans { line-height: 1.5; white-space: pre-wrap; }
+  details { margin: 10px 0; }
+  summary { cursor: pointer; color: #174ea6; font-size: 14px; padding: 4px 0; }
+  .trunc { color: var(--mut); font-size: 12.5px; margin-top: 4px; }
+  .scale { display: grid; grid-template-columns: 150px 1fr 340px; gap: 10px; align-items: center;
+           padding: 9px 0; border-top: 1px solid #eef1f4; }
+  .scale .name { font-weight: 600; }
+  .scale .anchor { color: var(--mut); font-size: 12.5px; line-height: 1.35; }
+  .stars { display: flex; gap: 6px; }
+  .stars button { flex: 1; padding: 7px 0; font-weight: 600; }
+  .stars button.on { background: #1a73e8; border-color: #1a73e8; color: #fff; }
+  .passrow { display: flex; align-items: center; gap: 10px; padding: 10px 0;
+             border-top: 1px solid #eef1f4; }
+  .passrow button.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  textarea { width: 100%; min-height: 44px; font: inherit; padding: 8px;
+             border: 1px solid #b9c2cc; border-radius: 6px; margin-top: 8px; }
+  .foot { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+  .foot .count { color: var(--mut); font-size: 14px; flex: 1; }
+  kbd { background: #eef1f4; border: 1px solid #cfd8dc; border-radius: 4px;
+        padding: 1px 6px; font-size: 12px; }
+  .hint { color: var(--mut); font-size: 12.5px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Tutor answer labeling <span id="pos" style="color:var(--mut);font-weight:400"></span></h1>
+    <div class="bar"><div id="barfill"></div></div>
+    <button id="prev">&#9664; Prev</button>
+    <button id="next">Next &#9654;</button>
+    <button id="dl">Download labels (.jsonl)</button>
+    <button id="backup">Backup progress</button>
+    <button id="restore">Restore…</button>
+    <input type="file" id="restorefile" accept=".json,application/json" hidden>
+    <button id="reset" style="color:#a50e0e">Reset</button>
+  </header>
+
+  <div class="dots" id="dots"></div>
+
+  <div id="item">
+    <div>
+      <span class="badge" id="bsubj"></span>
+      <span class="badge" id="bdiff"></span>
+    </div>
+    <div class="sys" id="bsys"></div>
+    <div class="card"><h3>Question</h3><div class="qa" id="bq"></div></div>
+    <div class="card">
+      <details id="refbox">
+        <summary>Reference answer (what the model was aiming at)</summary>
+        <div class="qa" id="bref" style="margin-top:8px"></div>
+      </details>
+    </div>
+    <div class="card"><h3>Model answer</h3><div class="ans" id="bans"></div>
+      <div class="trunc" id="btrunc"></div></div>
+
+    <div class="card">
+      <div id="scales"></div>
+      <div class="passrow">
+        <span><strong>Pass</strong> — would you accept this as a good tutor reply?</span>
+        <button data-pass="true">Yes</button>
+        <button data-pass="false">No</button>
+      </div>
+      <textarea id="notes" placeholder="Notes (optional)"></textarea>
+    </div>
+
+    <div class="foot">
+      <span class="count" id="count"></span>
+      <label style="font-size:13.5px"><input type="checkbox" id="autoadv" checked> auto-advance when complete</label>
+      <button id="nextbig" style="font-size:15px;padding:8px 22px">Next &#9654; <kbd>Enter</kbd></button>
+    </div>
+    <div class="hint">Keys: <kbd>1</kbd>–<kbd>5</kbd> rate the next unrated dimension &nbsp;·&nbsp;
+      <kbd>Y</kbd>/<kbd>N</kbd> pass yes/no &nbsp;·&nbsp; <kbd>←</kbd>/<kbd>→</kbd> navigate.</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const SET = __LABEL_SET_JSON__;
+const HASH = "__SET_HASH__";
+const DIMS = [
+  ["correctness", "1 = wrong final answer or broken reasoning ... 5 = fully correct (a different but valid method is fine)"],
+  ["format", "1 = no step-by-step structure, rambling or off-format ... 5 = clear, concise step-by-step tutor format"],
+  ["completeness", "1 = does not address the question or omits the final answer ... 5 = fully addresses the question, states the final answer, self-checks where appropriate"],
+];
+const STORE_KEY = "tutorLabels." + HASH;
+const N = SET.length;
+const keyOf = (i) => SET[i].task_id + ":" + SET[i].condition;
+
+let state = load();
+let storageOK = true;
+let warned = false;
+function storageWarning() {
+  if (warned) return;
+  warned = true;
+  const el = document.createElement("div");
+  el.style.cssText = "background:#fff3cd;border:1px solid #f0d264;border-radius:6px;" +
+    "padding:8px 12px;margin:8px 0;font-size:13.5px;";
+  el.textContent = "This browser blocks persistent storage for this page - progress will NOT survive a reload. " +
+    "Use 'Backup progress' after every batch and 'Restore' at the start of a session.";
+  document.querySelector(".wrap").prepend(el);
+}
+function fresh() { return { scores: {}, pass: {}, notes: {}, index: 0, auto: true }; }
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) { const s = JSON.parse(raw); if (s && s.scores) return s; }
+  } catch (e) { storageOK = false; console.warn("storage unavailable, in-memory only", e); }
+  return fresh();
+}
+function save() {
+  if (storageOK) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+    catch (e) { storageOK = false; }
+  }
+  if (!storageOK) storageWarning();
+  renderDots(); renderBar();
+}
+const get = (i, dim) => state.scores[keyOf(i)];
+const isDone = (i) => {
+  const s = state.scores[keyOf(i)] || {};
+  return DIMS.every((d) => s[d[0]]) && state.pass[keyOf(i)] !== undefined;
+};
+const nPart = (i) => {
+  const s = state.scores[keyOf(i)] || {};
+  return Object.keys(s).length + (state.pass[keyOf(i)] !== undefined ? 1 : 0);
+};
+const isPart = (i) => !isDone(i) && nPart(i) > 0;
+
+function renderBar() {
+  let done = 0, part = 0;
+  for (let i = 0; i < N; i++) {
+    if (isDone(i)) done++;
+    else if (isPart(i)) part++;
+  }
+  document.getElementById("barfill").style.width = (100 * done / N) + "%";
+  document.getElementById("count").textContent =
+    done + " complete · " + part + " partial · " + (N - done - part) + " left";
+}
+function renderDots() {
+  const el = document.getElementById("dots");
+  el.innerHTML = "";
+  for (let i = 0; i < N; i++) {
+    const b = document.createElement("button");
+    b.title = (i + 1) + " · " + SET[i].task_id + " (" + SET[i].condition + ")";
+    if (isDone(i)) b.className = "done";
+    else if (isPart(i)) b.className = "part";
+    if (i === state.index) b.classList.add("here");
+    b.addEventListener("click", () => { state.index = i; save(); render(); });
+    el.appendChild(b);
+  }
+}
+function render() {
+  const i = state.index;
+  const it = SET[i];
+  const k = keyOf(i);
+  const s = state.scores[k] || {};
+  document.getElementById("pos").textContent = (i + 1) + " / " + N;
+  document.getElementById("bsubj").textContent = it.subject;
+  document.getElementById("bdiff").textContent = it.difficulty;
+  document.getElementById("bsys").textContent = "Tutor instructions: “" + it.system + "”";
+  document.getElementById("bq").textContent = it.question;
+  document.getElementById("bref").textContent = it.reference;
+  document.getElementById("refbox").open = false;
+  document.getElementById("bans").textContent = it.answer;
+  document.getElementById("btrunc").textContent =
+    (it.truncated_answer ? "(answer truncated at 2000 chars — the same text the judge saw)" : "") +
+    (it.truncated_answer && it.truncated_ref ? " · " : "") +
+    (it.truncated_ref ? "(reference truncated at 1200 chars)" : "");
+  const scales = document.getElementById("scales");
+  scales.innerHTML = "";
+  DIMS.forEach(([name, anchor]) => {
+    const row = document.createElement("div");
+    row.className = "scale";
+    row.innerHTML =
+      '<div class="name">' + name + '</div>' +
+      '<div class="stars">' + [1, 2, 3, 4, 5].map((v) =>
+        '<button data-dim="' + name + '" data-v="' + v + '"' +
+        (s[name] === v ? ' class="on"' : "") + ">" + v + "</button>").join("") + '</div>' +
+      '<div class="anchor">' + anchor + "</div>";
+    scales.appendChild(row);
+  });
+  scales.querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      if (!state.scores[k]) state.scores[k] = {};
+      state.scores[k][b.dataset.dim] = Number(b.dataset.v);
+      save(); render(); maybeAdvance();
+    }));
+  document.querySelectorAll(".passrow button").forEach((b) =>
+    b.addEventListener("click", () => {
+      state.pass[k] = b.dataset.pass === "true";
+      save(); render(); maybeAdvance();
+    }));
+  document.querySelectorAll(".passrow button").forEach((b) =>
+    b.classList.toggle("on", state.pass[k] === (b.dataset.pass === "true")));
+  const notes = document.getElementById("notes");
+  notes.value = state.notes[k] || "";
+  notes.oninput = () => { state.notes[k] = notes.value; save(); };
+  document.getElementById("autoadv").checked = state.auto !== false;
+  document.getElementById("prev").disabled = i === 0;
+  renderBar(); renderDots();
+}
+function maybeAdvance() {
+  if (state.auto !== false && isDone(state.index) && state.index < N - 1) {
+    state.index += 1; save(); render();
+  }
+}
+function go(d) { state.index = Math.min(N - 1, Math.max(0, state.index + d)); save(); render(); }
+
+document.getElementById("prev").addEventListener("click", () => go(-1));
+document.getElementById("next").addEventListener("click", () => go(1));
+document.getElementById("nextbig").addEventListener("click", () => go(1));
+document.getElementById("autoadv").addEventListener("change", (e) => {
+  state.auto = e.target.checked; save();
+});
+document.getElementById("reset").addEventListener("click", () => {
+  if (confirm("Erase ALL progress in this browser for this label set?")) {
+    state = fresh(); save(); render();
+  }
+});
+function download(name, text, type) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: type }));
+  a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+document.getElementById("dl").addEventListener("click", () => {
+  const rows = SET.map((it, i) => [it, i]).filter(([it, i]) => isDone(i)).map(([it, i]) => ({
+    task_id: it.task_id,
+    condition: it.condition,
+    scores: {
+      correctness: state.scores[keyOf(i)].correctness,
+      format: state.scores[keyOf(i)].format,
+      completeness: state.scores[keyOf(i)].completeness,
+    },
+    pass: state.pass[keyOf(i)],
+    notes: state.notes[keyOf(i)] || "",
+    annotator: "self",
+  }));
+  const done = Array.from({ length: N }, (_, i) => isDone(i)).filter(Boolean).length;
+  if (done === 0) { alert("Nothing labeled yet."); return; }
+  if (done < N) {
+    if (!confirm(done + "/" + N + " complete — download the " + done + " complete items?")) return;
+  }
+  download("tutor_labels.jsonl",
+    rows.map((r) => JSON.stringify(r)).join("\n") + "\n", "application/jsonl");
+});
+document.getElementById("backup").addEventListener("click", () =>
+  download("label_progress_" + HASH.slice(0, 8) + ".json",
+    JSON.stringify(state, null, 1), "application/json"));
+document.getElementById("restore").addEventListener("click", () =>
+  document.getElementById("restorefile").click());
+document.getElementById("restorefile").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  f.text().then((t) => {
+    const s = JSON.parse(t);
+    if (!s || !s.scores) { alert("Not a progress backup."); return; }
+    state = s; save(); render();
+  });
+});
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
+  const k = keyOf(state.index);
+  if (!state.scores[k]) state.scores[k] = {};
+  if (e.key >= "1" && e.key <= "5") {
+    const next = DIMS.find(([n]) => !state.scores[k][n]);
+    if (next) {
+      state.scores[k][next[0]] = Number(e.key);
+      save(); render(); maybeAdvance(); e.preventDefault();
+    }
+  } else if (e.key === "y" || e.key === "Y") {
+    state.pass[k] = true; save(); render(); maybeAdvance();
+  } else if (e.key === "n" || e.key === "N") {
+    state.pass[k] = false; save(); render(); maybeAdvance();
+  } else if (e.key === "Enter") { go(1); e.preventDefault(); }
+  else if (e.key === "ArrowRight") { go(1); }
+  else if (e.key === "ArrowLeft") { go(-1); }
+});
+render();
+</script>
+</body>
+</html>
