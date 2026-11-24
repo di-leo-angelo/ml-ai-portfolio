@@ -536,6 +536,32 @@ commit: the labeling tooling (`tools/prep_labels.py` - deterministic
 - and `tools/labeling_template.html`, a self-contained browser UI; see
 `tools/LABELING.md`).
 
+**Status (2026-11-24, M3):** statistics layer complete and accepted
+(pure CPU, no scipy/sklearn; every function unit-tested against
+hand-computed references - 20 new tests, 124 total green, ruff clean).
+Shipped: `stats/bootstrap.py` (percentile CIs, B = 10,000, seed 1337
+overridable - plain, stratified with size-preserving within-stratum
+resampling and size-weighted pooled means, and paired on resampled
+index pairs with a CI on the mean difference); `stats/mcnemar.py`
+(exact two-sided p = 2*P(X <= min(b, c)) under Binomial(b + c, 0.5)
+via `math.comb`, capped at 1; exact Clopper-Pearson CI on (b - c) /
+(b + c) inverted by bisection on the binomial CDF; b + c = 0 reported
+as "no discordant pairs" with p = 1); Cohen's kappa (2x2 up to kxk)
+and quadratic weighted kappa (ordered 1..5) by hand in
+`stats/agreement.py`. Acceptance runs on the dogfood data:
+(1) McNemar on P1's 25 paired base-vs-lora exact-matches: b = c = 0 -
+no discordant pairs (both conditions pass exactly the same 13/25
+tasks), p = 1, reported as-is: the deterministic exact-match signal
+does not separate lora from base on the paired subset. (2) Bootstrap
+CIs on the judge means (B = 10,000, seed 1337): lora n = 230 -
+correctness 4.857 [4.804, 4.904], format 4.630 [4.552, 4.709],
+completeness 4.735 [4.657, 4.804]; base n = 25 - 4.840 [4.640, 5.000],
+4.680 [4.440, 4.880], 4.720 [4.440, 4.920]; paired lora - base
+(n = 25): +0.08 [-0.08, +0.24], -0.16 [-0.48, +0.16], 0.00 [-0.24,
++0.20] - every CI includes 0, i.e. no detectable lora/base difference
+on this (ceiling-saturated) judge. These numbers seed M6's report
+(headline numbers carry CI + n per section 6).
+
 ## 11. Risks & mitigations
 
 | Risk | Mitigation |
