@@ -34,8 +34,7 @@ def test_registry_has_both_graders() -> None:
 
 def test_port_matches_p1_grades() -> None:
     rows = [
-        json.loads(line)
-        for line in FIXTURE.read_text(encoding="utf-8").splitlines()
+        json.loads(line) for line in FIXTURE.read_text(encoding="utf-8").splitlines()
     ]
     assert len(rows) >= 10
     for row in rows:
@@ -61,10 +60,7 @@ def test_port_matches_p1_grades() -> None:
 
 
 def test_extract_final_answer_last_fraction_wins() -> None:
-    assert (
-        extract_final_answer("... so 3/36, which reduces to 1/12")
-        == Fraction(1, 12)
-    )
+    assert extract_final_answer("... so 3/36, which reduces to 1/12") == Fraction(1, 12)
 
 
 def test_extract_final_answer_last_number() -> None:

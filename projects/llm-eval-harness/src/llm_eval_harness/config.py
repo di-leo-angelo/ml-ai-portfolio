@@ -332,8 +332,10 @@ def same_model_family(model_a: str, model_b: str) -> bool:
     family_a, family_b = model_family(model_a), model_family(model_b)
     if len(family_a) < 3 or len(family_b) < 3:
         return False
-    return family_a == family_b or family_a.startswith(family_b) or family_b.startswith(
-        family_a
+    return (
+        family_a == family_b
+        or family_a.startswith(family_b)
+        or family_b.startswith(family_a)
     )
 
 
@@ -346,9 +348,7 @@ def judge_model_string(backend: Backend) -> str | None:
     if isinstance(backend, LocalBackend):
         if not backend.model_id:
             return None
-        return (
-            f"{backend.model_id}+LoRA" if backend.adapter_path else backend.model_id
-        )
+        return f"{backend.model_id}+LoRA" if backend.adapter_path else backend.model_id
     if isinstance(backend, RunPodBackend):
         return backend.model or backend.endpoint_id or None
     if isinstance(backend, (ApiBackend, ImportedBackend)):

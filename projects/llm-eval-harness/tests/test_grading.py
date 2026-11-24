@@ -76,9 +76,7 @@ def _setup(tmp_path: Path) -> Path:
     )
     config = tmp_path / "run.toml"
     config.write_text(
-        _TOML.replace(
-            '"TASKS_PLACEHOLDER"', f'"{tasks_path.as_posix()}"'
-        ),
+        _TOML.replace('"TASKS_PLACEHOLDER"', f'"{tasks_path.as_posix()}"'),
         encoding="utf-8",
     )
     return config
@@ -86,11 +84,14 @@ def _setup(tmp_path: Path) -> Path:
 
 def test_run_grading_writes_merged_rows(tmp_path: Path) -> None:
     config = _setup(tmp_path)
-    assert run_grading(
-        config,
-        generations=tmp_path / "generations.jsonl",
-        output_dir=tmp_path,
-    ) == 0
+    assert (
+        run_grading(
+            config,
+            generations=tmp_path / "generations.jsonl",
+            output_dir=tmp_path,
+        )
+        == 0
+    )
     rows = [
         json.loads(line)
         for line in (tmp_path / "grades.jsonl").read_text().splitlines()
@@ -114,9 +115,7 @@ def test_run_grading_unknown_task_raises(tmp_path: Path) -> None:
         line.replace('"task_id": "t1"', '"task_id": "zz"') + "\n", encoding="utf-8"
     )
     with pytest.raises(ValueError, match="unknown task"):
-        run_grading(
-            config, generations=path, output_dir=tmp_path
-        )
+        run_grading(config, generations=path, output_dir=tmp_path)
 
 
 def test_run_grading_missing_file_raises(tmp_path: Path) -> None:

@@ -124,9 +124,7 @@ def import_generations(path: str | Path) -> list[dict[str, Any]]:
             continue
         raw = json.loads(line)
         missing = [
-            key
-            for key in ("key", "sample_id", "condition", "output")
-            if key not in raw
+            key for key in ("key", "sample_id", "condition", "output") if key not in raw
         ]
         if missing:
             raise ValueError(f"line {line_no}: missing P1 field(s) {missing}")

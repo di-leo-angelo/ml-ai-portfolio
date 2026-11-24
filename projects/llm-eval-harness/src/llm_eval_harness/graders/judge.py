@@ -60,9 +60,7 @@ def build_judge_prompt(rubric: Rubric, batch: list[dict[str, Any]]) -> str:
         f'same order as the samples: [{{"key": "<key>", {fields}}}]',
     ]
     for sample in batch:
-        subject = (
-            f" (subject: {sample['subject']})" if sample.get("subject") else ""
-        )
+        subject = f" (subject: {sample['subject']})" if sample.get("subject") else ""
         parts.append(f"### Sample {sample['key']}{subject}")
         parts.append(f"Question: {sample['question']}")
         parts.append(f"Model answer: {str(sample['answer'])[:ANSWER_TRUNCATE]}")
@@ -141,9 +139,7 @@ def _regex_rows(
         if match:
             row = {"key": sample["key"]}
             row.update(
-                dict(
-                    zip(rubric.names(), (int(g) for g in match.groups()), strict=True)
-                )
+                dict(zip(rubric.names(), (int(g) for g in match.groups()), strict=True))
             )
             row["parse"] = "regex"
             rows.append(row)
@@ -175,9 +171,7 @@ def parse_scores(
     fence = _FENCE_RE.search(text)
     if fence:
         try:
-            return _rows_from_list(
-                json.loads(fence.group(1)), batch, rubric, "fence"
-            )
+            return _rows_from_list(json.loads(fence.group(1)), batch, rubric, "fence")
         except (json.JSONDecodeError, ValueError):
             pass
     span_start, span_end = text.find("["), text.rfind("]")
@@ -220,9 +214,7 @@ class JudgeScoreStore:
             except json.JSONDecodeError:
                 if index == len(lines) - 1:
                     continue  # torn tail: drop, keep resuming
-                raise ValueError(
-                    f"malformed line {index + 1} in {self.path}"
-                ) from None
+                raise ValueError(f"malformed line {index + 1} in {self.path}") from None
             if "key" not in raw:
                 raise ValueError(f"missing 'key' on line {index + 1} in {self.path}")
             keys.add(str(raw["key"]))
@@ -289,8 +281,7 @@ def judge_pending(
         print(f"nothing to judge ({len(done)} already in judge_scores.jsonl)")
         return 0
     batches = [
-        todo[i : i + judge.batch_size]
-        for i in range(0, len(todo), judge.batch_size)
+        todo[i : i + judge.batch_size] for i in range(0, len(todo), judge.batch_size)
     ]
     print(
         f"judging {len(todo)} samples in {len(batches)} batches of "
@@ -304,9 +295,7 @@ def judge_pending(
             task = tasks_by_id[str(record["task_id"])]
             samples.append(
                 {
-                    "key": judge_key(
-                        str(record["task_id"]), str(record["condition"])
-                    ),
+                    "key": judge_key(str(record["task_id"]), str(record["condition"])),
                     "subject": task.subject,
                     "question": task.prompt,
                     "answer": str(record.get("output", "")),
@@ -331,9 +320,7 @@ def judge_pending(
                 flush=True,
             )
             continue
-        by_key = {
-            judge_key(str(r["task_id"]), str(r["condition"])): r for r in batch
-        }
+        by_key = {judge_key(str(r["task_id"]), str(r["condition"])): r for r in batch}
         for row in rows:
             source = by_key[str(row["key"])]
             row.update(
@@ -435,9 +422,7 @@ def _pairwise_call(
 ) -> dict[str, Any]:
     job = GenerationJob(
         task_id="pairwise",
-        prompt=build_pairwise_prompt(
-            rubric, question, reference, answer_a, answer_b
-        ),
+        prompt=build_pairwise_prompt(rubric, question, reference, answer_a, answer_b),
         seed=0,
         temperature=temperature,
         max_tokens=max_tokens,
@@ -469,12 +454,24 @@ def pairwise_compare(
     and disagreement (the position-bias tell) is reported as such.
     """
     forward = _pairwise_call(
-        backend, rubric, question, reference, answer_a, answer_b,
-        temperature, max_tokens,
+        backend,
+        rubric,
+        question,
+        reference,
+        answer_a,
+        answer_b,
+        temperature,
+        max_tokens,
     )
     backward = _pairwise_call(
-        backend, rubric, question, reference, answer_b, answer_a,
-        temperature, max_tokens,
+        backend,
+        rubric,
+        question,
+        reference,
+        answer_b,
+        answer_a,
+        temperature,
+        max_tokens,
     )
     # Map the backward call's "b" back onto the original A/B positions.
     remap = {"a": "b", "b": "a", "tie": "tie"}

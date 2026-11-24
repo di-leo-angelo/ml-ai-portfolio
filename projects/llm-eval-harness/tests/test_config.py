@@ -162,17 +162,15 @@ def test_example_config_loads() -> None:
 def test_custom_dimensions_table(tmp_path: Path) -> None:
     # Note: TOML forbids re-declaring a key as a table header, so the
     # ``dimensions`` key is replaced by the [judge.dimensions] table.
-    body = (
-        _VALID_TOML.replace(
-            'dimensions = ["correctness", "tone"]', "batch_size = 3"
-        ).replace(
-            "[judge.backend]",
-            "[judge.dimensions]\n"
-            'correctness = "1 = wrong ... 5 = right"\n'
-            'format = "1 = rambling ... 5 = crisp"\n'
-            "\n"
-            "[judge.backend]",
-        )
+    body = _VALID_TOML.replace(
+        'dimensions = ["correctness", "tone"]', "batch_size = 3"
+    ).replace(
+        "[judge.backend]",
+        "[judge.dimensions]\n"
+        'correctness = "1 = wrong ... 5 = right"\n'
+        'format = "1 = rambling ... 5 = crisp"\n'
+        "\n"
+        "[judge.backend]",
     )
     config = load_run_config(_write(tmp_path, body))
     assert config.rubric_version == "custom"
@@ -237,16 +235,13 @@ def test_judge_identical_to_condition_raises(tmp_path: Path) -> None:
 
 
 def test_judge_same_family_warns(tmp_path: Path) -> None:
-    body = (
-        _VALID_TOML.replace(
-            'kind = "api"\nmodel = "gpt-4o-mini"\napi_key_env = "OPENAI_API_KEY"',
-            'kind = "api"\nmodel = "Qwen3.8-27B"\napi_key_env = "OPENAI_API_KEY"',
-        )
-        .replace(
-            '[judge.backend]\nkind = "runpod"\nendpoint_id = "ep-test"',
-            '[judge.backend]\nkind = "api"\nmodel = "Qwen/Qwen3-32B-AWQ"'
-            '\napi_key_env = "OPENAI_API_KEY"',
-        )
+    body = _VALID_TOML.replace(
+        'kind = "api"\nmodel = "gpt-4o-mini"\napi_key_env = "OPENAI_API_KEY"',
+        'kind = "api"\nmodel = "Qwen3.8-27B"\napi_key_env = "OPENAI_API_KEY"',
+    ).replace(
+        '[judge.backend]\nkind = "runpod"\nendpoint_id = "ep-test"',
+        '[judge.backend]\nkind = "api"\nmodel = "Qwen/Qwen3-32B-AWQ"'
+        '\napi_key_env = "OPENAI_API_KEY"',
     )
     config = load_run_config(_write(tmp_path, body))
     assert any("same family" in w for w in config.judge_warnings)

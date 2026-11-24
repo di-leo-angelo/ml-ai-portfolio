@@ -150,9 +150,7 @@ def rubric_from_specs(specs: Mapping[str, str]) -> Rubric:
         if not name:
             raise ValueError("judge dimension name must be non-empty")
         if not line:
-            raise ValueError(
-                f"judge dimension {name!r} needs a non-empty anchor line"
-            )
+            raise ValueError(f"judge dimension {name!r} needs a non-empty anchor line")
         dimensions.append(
             RubricDimension(
                 name=name,

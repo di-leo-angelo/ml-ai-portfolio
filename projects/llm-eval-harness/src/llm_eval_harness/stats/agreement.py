@@ -10,9 +10,7 @@ from __future__ import annotations
 import numpy as np
 
 
-def _validated_pairs(
-    xs: object, ys: object
-) -> tuple[np.ndarray, np.ndarray]:
+def _validated_pairs(xs: object, ys: object) -> tuple[np.ndarray, np.ndarray]:
     x = np.asarray(xs, dtype=float)
     y = np.asarray(ys, dtype=float)
     if x.ndim != 1 or y.ndim != 1 or x.shape != y.shape:

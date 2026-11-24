@@ -116,9 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output-dir", default=None, help="override the config's output_dir"
     )
 
-    judge = sub.add_parser(
-        "judge", help="LLM-as-judge the generations (resume-safe)"
-    )
+    judge = sub.add_parser("judge", help="LLM-as-judge the generations (resume-safe)")
     judge.add_argument("--config", required=True, help="path to a run TOML")
     judge.add_argument(
         "--generations",
