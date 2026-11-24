@@ -18,7 +18,7 @@ from llm_eval_harness.backends.base import (
     GenerationJob,
     GenerationRecord,
 )
-from llm_eval_harness.config import ApiBackend, JudgeConfig
+from llm_eval_harness.config import ApiBackend, JudgeConfig, load_run_config
 from llm_eval_harness.graders.judge import (
     ANSWER_TRUNCATE,
     JudgeScoreStore,
@@ -32,6 +32,7 @@ from llm_eval_harness.graders.judge import (
     parse_scores,
 )
 from llm_eval_harness.rubric import rubric_from_names, rubric_from_specs
+from llm_eval_harness.runner import _correlation_report
 from llm_eval_harness.tasks import Task
 
 BATCH = [
@@ -115,9 +116,7 @@ def test_prompt_built_in_anchors() -> None:
 
 def test_prompt_truncates_long_answer() -> None:
     long = "x" * ANSWER_TRUNCATE + "MARKER" * 50
-    batch = [
-        {"key": "t1:base", "question": "Q", "answer": long, "reference": None}
-    ]
+    batch = [{"key": "t1:base", "question": "Q", "answer": long, "reference": None}]
     prompt = build_judge_prompt(_custom_rubric(), batch)
     assert long[:ANSWER_TRUNCATE] in prompt
     assert "MARKER" not in prompt
@@ -168,14 +167,12 @@ def test_parse_json_embedded_in_prose() -> None:
 
 
 def test_parse_regex_fallback() -> None:
-    text = (
-        "t1:base: correctness: 4, format: 5\n"
-        "t2:lora: correctness: 2, format: 3"
-    )
+    text = "t1:base: correctness: 4, format: 5\nt2:lora: correctness: 2, format: 3"
     rows = parse_scores(text, BATCH, _custom_rubric())
-    assert {
-        r["key"]: (r["correctness"], r["format"], r["parse"]) for r in rows
-    } == {"t1:base": (4, 5, "regex"), "t2:lora": (2, 3, "regex")}
+    assert {r["key"]: (r["correctness"], r["format"], r["parse"]) for r in rows} == {
+        "t1:base": (4, 5, "regex"),
+        "t2:lora": (2, 3, "regex"),
+    }
 
 
 def test_parse_positional_when_keys_missing() -> None:
@@ -207,8 +204,7 @@ def test_parse_unparseable_returns_empty() -> None:
 def test_store_resume_and_torn_tail(tmp_path: Path) -> None:
     path = tmp_path / "judge_scores.jsonl"
     path.write_text(
-        json.dumps({"key": "t1:base", "correctness": 4}) + "\n"
-        + '{"key": "t2:lo',
+        json.dumps({"key": "t1:base", "correctness": 4}) + "\n" + '{"key": "t2:lo',
         encoding="utf-8",
     )
     store = JudgeScoreStore(path)
@@ -220,9 +216,11 @@ def test_store_resume_and_torn_tail(tmp_path: Path) -> None:
 def test_store_malformed_middle_line_raises(tmp_path: Path) -> None:
     path = tmp_path / "judge_scores.jsonl"
     path.write_text(
-        json.dumps({"key": "t1:base"}) + "\n"
+        json.dumps({"key": "t1:base"})
+        + "\n"
         + "not json\n"
-        + json.dumps({"key": "t2:base"}) + "\n",
+        + json.dumps({"key": "t2:base"})
+        + "\n",
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="malformed"):
@@ -287,10 +285,7 @@ def _tasks() -> dict[str, Task]:
 
 def _reply(scores: dict[str, tuple[int, int]]) -> str:
     return json.dumps(
-        [
-            {"key": key, "correctness": c, "format": f}
-            for key, (c, f) in scores.items()
-        ]
+        [{"key": key, "correctness": c, "format": f} for key, (c, f) in scores.items()]
     )
 
 
@@ -302,9 +297,7 @@ def test_judge_pending_writes_rows(tmp_path: Path) -> None:
             _reply({"t3:lora": (5, 4)}),
         ]
     )
-    code = judge_pending(
-        backend, _judge_config(), _generations(), _tasks(), tmp_path
-    )
+    code = judge_pending(backend, _judge_config(), _generations(), _tasks(), tmp_path)
     assert code == 0
     lines = (tmp_path / "judge_scores.jsonl").read_text().splitlines()
     rows = [json.loads(line) for line in lines]
@@ -344,9 +337,7 @@ def test_judge_pending_failed_batch_counts(tmp_path: Path) -> None:
             _reply({"t3:lora": (5, 4)}),
         ]
     )
-    code = judge_pending(
-        backend, _judge_config(), _generations(), _tasks(), tmp_path
-    )
+    code = judge_pending(backend, _judge_config(), _generations(), _tasks(), tmp_path)
     assert code == 1  # one batch failed after retries
     rows = [
         json.loads(line)
@@ -417,3 +408,86 @@ def test_data_guard_same_family_warns() -> None:
 
 def test_data_guard_different_family_silent() -> None:
     assert judge_model_warnings("Qwen/Qwen3-32B-AWQ", {"gpt-4o-mini"}) == []
+
+
+# --- --against correlation report -------------------------------------------------
+
+_CORR_TOML = """
+name = "unit-corr"
+data = "TASKS_PLACEHOLDER"
+temperature = 0.0
+max_tokens = 512
+
+[conditions.base]
+seed = 0
+
+[conditions.base.backend]
+kind = "imported"
+model = "test-model"
+
+[judge]
+dimensions = ["correctness", "format"]
+
+[judge.backend]
+kind = "api"
+base_url = "http://localhost:1/v1"
+model = "judge-model"
+api_key_env = "UNSET_TEST_KEY"
+"""
+
+
+def _corr_config(tmp_path: Path):
+    tasks_path = tmp_path / "tasks.jsonl"
+    tasks_path.write_text(
+        json.dumps(
+            {
+                "id": "t1",
+                "prompt": "Q",
+                "reference": "R",
+                "subject": "algebra",
+                "difficulty": "beginner",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "run.toml"
+    config_path.write_text(
+        _CORR_TOML.replace('"TASKS_PLACEHOLDER"', f'"{tasks_path.as_posix()}"'),
+        encoding="utf-8",
+    )
+    return load_run_config(config_path)
+
+
+def test_correlation_report_zero_variance_reported(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A zero-variance dimension on a tiny --limit smoke must be reported,
+    not raised (regression: the live 5-sample smoke crashed the report
+    with "zero variance: correlation undefined")."""
+    config = _corr_config(tmp_path)
+    ours = [
+        {"key": "p1_0001:base", "correctness": 5, "format": 5},
+        {"key": "p1_0002:base", "correctness": 5, "format": 4},
+        {"key": "p1_0003:base", "correctness": 5, "format": 3},
+    ]
+    (tmp_path / "judge_scores.jsonl").write_text(
+        "\n".join(json.dumps(row) for row in ours) + "\n", encoding="utf-8"
+    )
+    legacy_path = tmp_path / "legacy.jsonl"
+    legacy_path.write_text(
+        "\n".join(
+            [
+                json.dumps({"key": "0:base", "correctness": 5, "format": 4}),
+                json.dumps({"key": "1:base", "correctness": 5, "format": 4}),
+                json.dumps({"key": "2:base", "correctness": 5, "format": 2}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    _correlation_report(legacy_path, tmp_path, config)
+    out = capsys.readouterr().out
+    assert "correlation vs P1 legacy" in out
+    assert "undefined" in out  # correctness: constant on both sides
+    assert "pearson=" in out  # format: still computed and reported

@@ -217,9 +217,7 @@ def read_generations(path: Path) -> list[dict[str, Any]]:
             "`import-generations` first)"
         )
     lines = [
-        line
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
+        line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
     ]
     records: list[dict[str, Any]] = []
     for index, line in enumerate(lines):
@@ -254,8 +252,7 @@ def run_grading(
         task_id = str(record.get("task_id", ""))
         if task_id not in tasks_by_id:
             raise ValueError(
-                f"generation references unknown task {task_id!r} "
-                f"(not in {config.data})"
+                f"generation references unknown task {task_id!r} (not in {config.data})"
             )
         task = tasks_by_id[task_id]
         row: dict[str, Any] = {
@@ -280,13 +277,10 @@ def run_grading(
             if math_rows
             else "-"
         )
-        steps = (
-            f"{100 * sum(r['step_scaffolding'] for r in rows_c) / len(rows_c):.0f}%"
-        )
+        steps = f"{100 * sum(r['step_scaffolding'] for r in rows_c) / len(rows_c):.0f}%"
         cap = f"{100 * sum(r['within_word_cap'] for r in rows_c) / len(rows_c):.0f}%"
         print(
-            f"[{condition}] n={len(rows_c)} exact={exact} "
-            f"steps={steps} under-cap={cap}"
+            f"[{condition}] n={len(rows_c)} exact={exact} steps={steps} under-cap={cap}"
         )
     print(f"graded {len(rows)} records -> {out_path}")
     return 0
@@ -300,7 +294,10 @@ def _correlation_report(
     P1 rows: ``{"key": "10:base", "correctness": 5, ...}``; keys map
     onto harness (task_id, condition) pairs via
     ``legacy.p1_key_to_task_id``. This is the M2 port-validation check
-    (acceptance: >= 0.8 per dimension).
+    (acceptance: >= 0.8 per dimension). A dimension with fewer than 2
+    overlapping rows, or with zero variance (correlation undefined -
+    possible on a tiny ``--limit`` smoke), is reported as such instead
+    of raising.
     """
     legacy: dict[str, dict[str, Any]] = {}
     for line in Path(legacy_path).read_text(encoding="utf-8").splitlines():
@@ -334,10 +331,16 @@ def _correlation_report(
         if len(xs) < 2:
             print(f"  {dim}: n={len(xs)} - not enough overlap")
             continue
-        print(
-            f"  {dim}: n={len(xs)} pearson={pearson(xs, ys):.3f} "
-            f"spearman={spearman(xs, ys):.3f}"
-        )
+        try:
+            print(
+                f"  {dim}: n={len(xs)} pearson={pearson(xs, ys):.3f} "
+                f"spearman={spearman(xs, ys):.3f}"
+            )
+        except ValueError as exc:
+            # Zero-variance dimension (constant scores) makes the
+            # correlation undefined; report it instead of crashing the
+            # run after a fully successful judging pass.
+            print(f"  {dim}: n={len(xs)} - undefined ({exc})")
 
 
 def run_judging(
@@ -428,8 +431,7 @@ def run_pairwise(
         by_condition.setdefault(condition, {})[str(record["task_id"])] = record
     if condition_a not in by_condition or condition_b not in by_condition:
         raise ValueError(
-            f"generations {gen_path} lack condition {condition_a!r} or "
-            f"{condition_b!r}"
+            f"generations {gen_path} lack condition {condition_a!r} or {condition_b!r}"
         )
     pairs = [
         task_id
