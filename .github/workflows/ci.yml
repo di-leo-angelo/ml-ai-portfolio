@@ -34,3 +34,48 @@ jobs:
 
       - name: Test
         run: uv run pytest
+
+  # M5 (PLAN section 7): optional eval gate. Runs the full
+  # grade -> judge -> report -> gate chain on a committed 30-task smoke
+  # set (baselines/ci_smoke, seed 1337) using the free RunPod serverless
+  # endpoint - no GPU. Only runs when the RUNPOD_API_KEY secret is
+  # present; skips cleanly otherwise. Judge costs ~30 serverless calls
+  # per push to main / PR.
+  eval-gate:
+    runs-on: ubuntu-latest
+    needs: quality
+    if: ${{ secrets.RUNPOD_API_KEY != '' }}
+    env:
+      RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Restore committed smoke generations
+        run: |
+          mkdir -p projects/llm-eval-harness/reports/ci-smoke
+          cp projects/llm-eval-harness/baselines/ci_smoke/generations.jsonl \
+             projects/llm-eval-harness/reports/ci-smoke/generations.jsonl
+
+      - name: Grade (CPU-only)
+        run: uv run python -m llm_eval_harness grade --config projects/llm-eval-harness/configs/ci_smoke.toml
+
+      - name: Judge (RunPod serverless)
+        run: uv run python -m llm_eval_harness judge --config projects/llm-eval-harness/configs/ci_smoke.toml --concurrency 3
+
+      - name: Report
+        run: uv run python -m llm_eval_harness report --run projects/llm-eval-harness/reports/ci-smoke --config projects/llm-eval-harness/configs/ci_smoke.toml
+
+      - name: Gate
+        run: uv run python -m llm_eval_harness gate --run projects/llm-eval-harness/reports/ci-smoke --baseline projects/llm-eval-harness/baselines/ci_smoke/baseline.json --config projects/llm-eval-harness/configs/ci_smoke_gate.toml

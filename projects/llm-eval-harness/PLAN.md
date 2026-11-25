@@ -591,8 +591,10 @@ in `data/human_labels/tutor_labels.jsonl`, the real run is a single
 command: `python -m llm_eval_harness calibrate --run
 qwen-qlora-dogfood --labels data/human_labels/tutor_labels.jsonl`.
 
-**Status (2026-11-24, M5):** report + CI-gate pipeline complete and
-tested; the live CI-smoke baseline is held for a funded endpoint.
+**Status (2026-11-25, M5, completed):** report + CI-gate pipeline
+complete and tested; all acceptance bars green (the CI-smoke baseline
+and the `eval-gate` Actions job landed 2026-11-25 after the RunPod
+top-up - see the completion note at the end of this entry).
 Shipped: `report.py` (the `report` command: `summary.json` - the gate
 contract with `meta.schema = 1` and a flat dotted-name metrics table:
 `exact_match.pass_rate` (true/answered, abstentions excluded +
@@ -625,20 +627,27 @@ generates), `configs/ci_smoke.toml`, and `configs/ci_smoke_gate.toml`
 (enforced floor: exact-match pass rate unchanged - min_delta 0.0,
 since the committed generations make the grade deterministic - and a
 judge-coverage floor of 0.90 for n = 30; judge dimensions
-`check = false` pending the M4 verdict). **Blocked on the user:** the
-RunPod endpoint now returns 402 (Payment Required) - the key's funds
-were exhausted by the M2 dogfood's 255 judge calls. The CI-smoke
-baseline (`baselines/ci_smoke/baseline.json`) and the `eval-gate`
-job in `.github/workflows/ci.yml` are written locally but deliberately
-uncommitted so main's CI stays green during the 402 window. Resume
-once funds are restored (judge is resume-safe; 30 samples, ~$0.05):
-`judge --config configs/ci_smoke.toml --env-file .env --concurrency 3`,
-then `report --run reports/ci-smoke --config configs/ci_smoke.toml`,
-then `gate --run reports/ci-smoke --baseline
-baselines/ci_smoke/baseline.json --config configs/ci_smoke_gate.toml`
-(first run: copy `reports/ci-smoke/summary.json` into
-`baselines/ci_smoke/baseline.json` before the gate), then commit the
-job.
+`check = false` pending the M4 verdict). **Completed 2026-11-25:**
+after the RunPod top-up (the endpoint had been returning 402 - the
+key's funds were exhausted by the M2 dogfood's 255 judge calls), the
+live smoke chain ran to completion: 30/30 judged at 100% parse
+coverage, 0 parse failures (one 502 blip on the free endpoint cost a
+single resume run - the store is resume-safe by design, and that is
+exactly what it demonstrated). Shipped: `baselines/ci_smoke/
+baseline.json` (pass_rate 3/13 answered, CI [0.0, 0.462]; abstention
+2/15; word_count p95 359.5; coverage 1.0; judge means 4.8 / 4.6 /
+4.7) and the `eval-gate` job in `.github/workflows/ci.yml` (runs only
+when the `RUNPOD_API_KEY` secret is set - skips cleanly otherwise;
+~30 free-endpoint calls per push to main / PR). Live acceptance:
+the gate passes against its own smoke baseline (exit 0) and a
+planted −0.05 regression (a copy of the committed baseline with the
+pass rate pushed up 0.05) fails it (exit 1), matching the section 10
+criteria. Note:
+`ci_smoke_gate.toml` carries no `ci_low_min` - on n = 13 answered
+math rows the bootstrap CI lower bound of the pass rate is
+structurally 0.0 (it was 0.0 on the baseline run), so a positive
+floor would fail every run; the absolute-level floor is kept at
+full-run scale instead (`gate.toml`, ci_low_min = 0.30).
 
 ## 11. Risks & mitigations
 

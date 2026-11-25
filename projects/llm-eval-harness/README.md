@@ -6,9 +6,10 @@ OpenAI-compatible API / RunPod), LLM-as-judge with structured rubric
 scoring, calibration against human labels, bootstrap/McNemar statistics,
 and a CI regression gate.
 
-**Status: M5 report + CI-gate pipeline shipped (2026-11-24); M3 stats
-and M4 calibration shipped the same day; M2 accepted with one
-documented exception.**
+**Status: M5 complete (2026-11-25) - report + CI-gate live with
+committed baselines and the `eval-gate` Actions job; M3 stats and M4
+calibration shipped the day before; M2 accepted with one documented
+exception.**
 M0-M4 shipped: run config + task specs; `local` HF / `api` / `runpod`
 backends with resume-safe generation; the deterministic graders and the
 LLM-as-judge ported from P1's frozen eval scripts (config-extensible

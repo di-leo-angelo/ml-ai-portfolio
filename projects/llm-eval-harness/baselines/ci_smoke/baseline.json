@@ -1,0 +1,67 @@
+{
+  "meta": {
+    "schema": 1,
+    "run_id": "ci-smoke",
+    "generated_at": "2026-11-25T06:27:07.108487+00:00",
+    "harness_version": "0.1.0",
+    "config": "projects/llm-eval-harness/configs/ci_smoke.toml",
+    "tasks_file": "projects/llm-eval-harness/baselines/ci_smoke/tasks.jsonl",
+    "tasks_sha256": "8ad64170f44c9cf7d860793486ede5c253dfd7f3e512d8c4cd2b48a91e41c81d",
+    "git_commit": "7e336cecf18c93f80ab44c6104219ccb3e3e98aa",
+    "judge_model": "Qwen/Qwen3-32B-AWQ",
+    "rubric_version": "custom",
+    "n_generations": 30,
+    "n_graded": 30,
+    "n_judged": 30
+  },
+  "metrics": {
+    "exact_match.pass_rate": {
+      "value": 0.230769,
+      "ci": [
+        0.0,
+        0.461538
+      ],
+      "n": 13
+    },
+    "exact_match.abstention_rate": {
+      "value": 0.133333,
+      "n": 15
+    },
+    "format.word_count.p95": {
+      "value": 359.54999999999995,
+      "n": 30
+    },
+    "judge.coverage": {
+      "value": 1.0,
+      "n": 30
+    },
+    "judge.parse_json_rate": {
+      "value": 1.0,
+      "n": 30
+    },
+    "judge.correctness.mean": {
+      "value": 4.8,
+      "ci": [
+        4.6,
+        4.933333
+      ],
+      "n": 30
+    },
+    "judge.format.mean": {
+      "value": 4.6,
+      "ci": [
+        4.333333,
+        4.833333
+      ],
+      "n": 30
+    },
+    "judge.completeness.mean": {
+      "value": 4.7,
+      "ci": [
+        4.433333,
+        4.933333
+      ],
+      "n": 30
+    }
+  }
+}

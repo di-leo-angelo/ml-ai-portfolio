@@ -9,13 +9,19 @@
 # The coverage floor is 0.90 here (not the full run's 0.95): on n = 30
 # two parse failures would already be 0.933, and one flaky free-endpoint
 # reply must not fail the whole CI - three or more would.
+#
+# No ci_low_min here: on n = 13 answered math rows the bootstrap CI
+# lower bound of the pass rate is structurally 0.0 (it was 0.0 on the
+# baseline run), so a positive floor would fail every run. The absolute
+# level is guarded at full-run scale instead (gate.toml, ci_low_min =
+# 0.30); at smoke scale the deterministic min_delta = 0.0 check is the
+# stronger regression guard anyway.
 
 [guards]
 judge_coverage_min = 0.90
 
 [metrics."exact_match.pass_rate"]
 min_delta = 0.0
-ci_low_min = 0.05
 
 [metrics."format.word_count.p95"]
 max_delta = 50
